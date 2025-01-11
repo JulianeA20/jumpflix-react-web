@@ -1,10 +1,10 @@
 import PageLayout from "../components/PageLayout";
-const Dashboard = () => {
+const Movies = () => {
   return (
     <PageLayout>
-      <h1>Bem-vindo a Dashboard</h1>
+      <h1>Filmes</h1>
     </PageLayout>
   );
 };
 
-export default Dashboard;
+export default Movies;

@@ -1,119 +1,216 @@
-import Dexie from "dexie";
-
-const db = new Dexie('EntertainmentDatabase');
-
-db.version(1).stores({
-  movies: '++id, title, releaseYear, imdbRating, synopsis, posterUrl, thumbnailUrl, videoUrl, duration',
-  series: '++id, title, releaseYear, imdbRating, synopsis, posterUrl, isDorama',
-  animes: '++id, title, releaseYear, imdbRating, synopsis, posterUrl, thumbnailUrl',
-  seasons: '++id, parentId, parentType, seasonNumber, arcName',
-  episodes: '++id, seasonId, episodeNumber, title, thumbnailUrl, videoUrl, duration'
-});
+import { supabase } from "../services/supabaseClient";
 
 // Adicionar
-export async function addMovie(movie) {
-  return await db.movies.add(movie);
+export async function addMovie(movieData) {
+  const { data, error } = await supabase
+    .from("movies")
+    .insert([movieData])
+    .select();
+
+  if (error) throw error;
+  return data[0];
 }
 
-export async function addSeries(series) {
-  return await db.series.add(series);
+export async function addSeries(seriesData) {
+  const { data, error } = await supabase
+    .from("series")
+    .insert([seriesData])
+    .select();
+
+  if (error) throw error;
+  return data[0];
 }
 
-export async function addAnime(anime) {
-  return await db.animes.add(anime);
+export async function addAnime(animeData) {
+  const { data, error } = await supabase
+    .from("animes")
+    .insert([animeData])
+    .select();
+
+  if (error) throw error;
+  return data[0];
 }
 
-export async function addSeason(season) {
-  return await db.seasons.add(season);
+export async function addSeason(seasonData) {
+  const { data, error } = await supabase
+    .from("seasons")
+    .insert([seasonData])
+    .select();
+
+  if (!error) throw error;
+  return data[0];
 }
 
-export async function addEpisode(episode) {
-  return await db.episodes.add(episode);
+export async function addEpisode(episodeData) {
+  const { data, error } = await supabase
+    .from("episodes")
+    .insert([episodeData])
+    .select();
+
+  if (!error) throw error;
+  return data[0];
 }
 
 // Buscar
 export async function getMovies() {
-  return await db.movies.toArray();
+  const { data, error } = await supabase.from("movies").select();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getSeries() {
-  return await db.series.toArray();
+  const { data, error } = await supabase.from("series").select();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getAnimes() {
-  return await db.animes.toArray();
+  const { data, error } = await supabase.from("animes").select();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getSeasons(parentId, parentType) {
-  return await db.seasons.where({ parentId, parentType }).toArray();
+  const { data, error } = await supabase
+    .from("seasons")
+    .select()
+    .eq("parentId", parentId)
+    .eq("parentType", parentType);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getEpisodes(seasonId) {
-  return await db.episodes.where({ seasonId }).toArray();
+  const { data, error } = await supabase
+    .from("episodes")
+    .select()
+    .eq("seasonId", seasonId);
+
+  if (error) throw error;
+  return data;
 }
 
 // Buscar itens específicos
 export async function getMovieById(id) {
-  return await db.movies.get(id);
+  const { data, error } = await supabase
+    .from("movies")
+    .select()
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getSeriesById(id) {
-  return await db.series.get(id);
+  const { data, error } = await supabase
+    .from("series")
+    .select()
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function getAnimeById(id) {
-  return await db.animes.get(id);
+  const { data, error } = await supabase
+    .from("animes")
+    .select()
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 // Atualizar dados
 export async function updateMovie(id, changes) {
-  await db.movies.update(id, changes);
+  const { data, error } = await supabase
+    .from("movies")
+    .update(changes)
+    .eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateSeries(id, changes) {
-  await db.series.update(id, changes);
+  const { data, error } = await supabase
+    .from("series")
+    .update(changes)
+    .eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateAnime(id, changes) {
-  await db.animes.update(id, changes);
+  const { data, error } = await supabase
+    .from("animes")
+    .update(changes)
+    .eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateSeason(id, changes) {
-  await db.seasons.update(id, changes);
+  const { data, error } = await supabase
+    .from("seasons")
+    .update(changes)
+    .eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateEpisode(id, changes) {
-  await db.episodes.update(id, changes);
+  const { data, error } = await supabase
+    .from("episodes")
+    .update(changes)
+    .eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 // Deletar dados
 export async function deleteMovie(id) {
-  return await db.movies.delete(id);
+  const { data, error } = await supabase.from("movies").delete().eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteSeries(id) {
-  await db.series.delete(id);
-  const seasons = await getSeasons(id, 'series');
-  for (let season of seasons) {
-    await deleteSeason(season.id);
-  }
+  const { data, error } = await supabase.from("series").delete().eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteAnime(id) {
-  await db.animes.delete(id);
-  const seasons = await getSeasons(id, "anime");
-  for (let season of seasons) {
-    await deleteSeason(season.id);
-  }
+  const { data, error } = await supabase.from("animes").delete().eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteSeason(id) {
-  await db.seasons.delete(id);
-  await db.episodes.where({ seasonId: id }).delete();
+  const { data, error } = await supabase.from("seasons").delete().eq("id", id);
+
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteEpisode(id) {
-  return await db.episodes.delete(id);
-}
+  const { data, error } = await supabase.from("episodes").delete().eq("id", id);
 
-export default db;
+  if (error) throw error;
+  return data;
+}
