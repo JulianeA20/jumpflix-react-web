@@ -13,14 +13,14 @@ import Animes from './pages/Animes';
 import Kdramas from './pages/Kdramas';
 
 const router = createBrowserRouter([
-  { path: '/', element: <Home /> },
-  { path: '/dashboard', element: <Dashboard /> },
-  { path: '/profile', element: <Profile /> },
-  { path: '/content/:id', element: <ContentDetails /> },
-  { path: '/movies', element: <Movies /> },
-  { path: '/series', element: <Series /> },
-  { path: '/animes', element: <Animes /> },
-  { path: '/kdramas', element: <Kdramas /> },
+  { path: "/", element: <Home /> },
+  { path: "/dashboard", element: <Dashboard /> },
+  { path: "/profile", element: <Profile /> },
+  { path: "/content/:type/:id", element: <ContentDetails /> },
+  { path: "/movies", element: <Movies /> },
+  { path: "/series", element: <Series /> },
+  { path: "/animes", element: <Animes /> },
+  { path: "/kdramas", element: <Kdramas /> },
   // Add more routes as needed
 ]);
 

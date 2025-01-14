@@ -1,31 +1,16 @@
-import { useEffect, useState } from "react";
-import { getMovies } from "../services/database";
+import PropTypes from "prop-types";
 import { CirclePlay } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-function MovieList() {
-  const [movies, setMovies] = useState([]);
+function MovieList({ movies }) {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    async function fetchMovies() {
-      const movieList = await getMovies();
-      console.log("Filmes retornados: ", movieList);
-      setMovies(movieList);
-      console.log("Estado dos filmes:", movieList);
-    }
-    fetchMovies();
-  }, []);
-
   const handlePlayClick = (movieId) => {
-    navigate(`/contentDetails/${movieId}`);
+    navigate(`/content/movie/${movieId}`);
   };
 
   return (
     <div>
-      <h2 className="font-semibold text-2xl ml-6 mt-10">Lista de Filmes</h2>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7  gap-6 p-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-6 p-6">
         {movies.length === 0 ? (
           <p className="ml-6">Nenhum filme encontrado.</p>
         ) : (
@@ -64,5 +49,16 @@ function MovieList() {
     </div>
   );
 }
+
+MovieList.propTypes = {
+  movies: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      posterUrl: PropTypes.string.isRequired,
+      releaseYear: PropTypes.string.isRequired,
+    })
+  ).isRequired,
+};
 
 export default MovieList;

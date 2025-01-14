@@ -214,3 +214,69 @@ export async function deleteEpisode(id) {
   if (error) throw error;
   return data;
 }
+
+export async function getContentDetails(id, type) {
+  let data, error;
+
+  switch (type) {
+    case "movie":
+      ({ data, error } = await supabase
+        .from("movies")
+        .select("*")
+        .eq("id", id)
+        .single());
+      break;
+    case "series":
+      ({ data, error } = await supabase
+        .from("series")
+        .select(
+          `
+          *,
+          seasons(
+            *,
+            episodes(*)
+          )
+        `
+        )
+        .eq("id", id)
+        .single());
+      break;
+    case "dorama":
+      ({ data, error } = await supabase
+        .from("doramas")
+        .select(
+          `
+          *,
+          seasons(
+            *,
+            episodes(*)
+          )
+        `
+        )
+        .eq("id", id)
+        .single());
+      break;
+    case "anime":
+      ({ data, error } = await supabase
+        .from("animes")
+        .select(
+          `
+          *,
+          seasons(
+            *,
+            episodes(*)
+          )
+        `
+        )
+        .eq("id", id)
+        .single());
+      break;
+    default:
+      throw new Error("Tipo de conteúdo inválido");
+  }
+
+  if (error) throw error;
+  if (!data) throw new Error("Conteúdo não encontrado");
+
+  return data;
+}
