@@ -1,21 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import HeaderBack from "../components/HeaderBack";
 import { getContentDetails } from "../services/database";
-import logo from "../assets/logo-jf.png";
+import { supabase } from "../services/supabaseClient";
 import { Play, Star } from "lucide-react";
 
 const ContentDetails = () => {
   const { id, type } = useParams();
+  const [user, setUser] = useState(null);
   const [content, setContent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSeason, setSelectedSeason] = useState(1);
+  const [showControls, setShowControls] = useState(false);
 
   useEffect(() => {
     const fetchContentDetails = async () => {
       setIsLoading(true);
       try {
-        const deatils = await getContentDetails(id, type);
-        setContent(deatils);
+        const details = await getContentDetails(id, type);
+        setContent(details);
       } catch (error) {
         console.error("Erro ao buscar detalhes do conteúdo:", error);
       } finally {
@@ -26,6 +29,36 @@ const ContentDetails = () => {
     fetchContentDetails();
   }, [id, type]);
 
+    const fetchUserData = useCallback(async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Erro ao buscar sessão do usuário:", error);
+        } else if (data?.session?.user) {
+          setUser(data.session.user.user_metadata);
+        }
+      } catch (err) {
+        console.error("Erro inesperado ao buscar sessão:", err);
+      }
+    }, []);
+
+  
+  useEffect(() => {
+    fetchUserData();
+
+    const { subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+      }
+    );
+
+     return () => {
+       if (subscription) {
+         subscription.unsubscribe();
+       }
+     };
+  }, [fetchUserData]);
+
   if (isLoading) {
     return <div>Carregando...</div>;
   }
@@ -34,15 +67,30 @@ const ContentDetails = () => {
     return <div>Conteúdo não encontrado.</div>;
   }
 
+  const handlePlay = () => {
+    setShowControls(true);
+    const videoElement = document.getElementById("content-video");
+    if (videoElement) {
+      videoElement.play();
+    }
+  };
+
   const renderContent = () => {
     if (type === "movie") {
       return (
-        <div className="bg-black rounded-lg overflow-hidden">
+        <div className="relative bg-black rounded-lg overflow-hidden">
           {content.videoUrl ? (
-            <video controls poster={content.thumbnailUrl} className="w-full">
-              <source src={content.videoUrl} type="video/mp4" />
-              Seu navegador não suporta o elemento de video.
-            </video>
+            <>
+              <video id="content-video" controls={showControls} poster={content.thumbnailUrl} className="w-full">
+                <source src={content.videoUrl} type="video/mp4" />
+                Seu navegador não suporta o elemento de video.
+              </video>
+              {!showControls && (
+                <button onClick={handlePlay} className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-4xl">
+                  <Play size={48}/>
+                </button>
+              )}
+            </>
           ) : (
             <img src={content.thumbnailUrl} alt="Thumbnail" className="w-full" />
           )}
@@ -85,15 +133,9 @@ const ContentDetails = () => {
       style={{ backgroundImage: `url(${content.posterUrl})` }}
     >
       <div className="backdrop-blur-md bg-black/50 min-h-screen">
-        <header className="flex justify-between items-center p-4">
-          <img src={logo} alt="Logo" className="h-8" />
-          <div className="flex items-center space-x-4">
-            <button></button>
-            <button></button>
-          </div>
-        </header>
+        <HeaderBack user={user} className="mb-6" />
 
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 pt-36">
           <div className="flex flex-col md:flex-row">
             <div className="relative mb-6 md:mb-0 md:mr-8">
               <img
@@ -101,9 +143,9 @@ const ContentDetails = () => {
                 alt={content.title}
                 className="w-64 rounded-lg shadow-lg"
               />
-              <div className="absolute -bottom-4 -right-4 bg-yellow-400 text-black rounded-full w-16 h-16 flex items-center justify-center">
+              <div className="absolute bottom-auto right-0 bg-yellow-400 text-black rounded-full w-16 h-16 flex items-center justify-center">
                 <Star className="w-4 h-4 mr-1" />
-                <span className="font-bold">{content.rating || "N/A"}</span>
+                <span className="font-bold">{content.imdbRating || "N/A"}</span>
               </div>
             </div>
 
@@ -114,8 +156,8 @@ const ContentDetails = () => {
                   <span className="mr-4">{content.releaseYear}</span>
                   <span>
                     {type === "movie"
-                      ? content.duration
-                      : `${content.seasons?.lenght} temporadas`}
+                      ? `${content.duration || 0}min`
+                      : `${content.seasons?.length || 0} ${content.seasons?.length === 1 ? "temporada" : "temporadas"}`}
                   </span>
                 </div>
                 <p className="text-gray-300 mb-4">{content.synopsis}</p>
@@ -124,7 +166,7 @@ const ContentDetails = () => {
           </div>
 
           <div className="mt-12">
-            <h2 className="text-2xl font-bold text-white mb-4">
+            <h2 className="text-2xl text-center font-bold text-white mb-4">
               {type === "movie" ? "Conteúdo" : "Episódios"}
             </h2>
             {renderContent()}

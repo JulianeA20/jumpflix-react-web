@@ -80,7 +80,6 @@ const Profile = () => {
         }
 
         setProfile(profileData);
-        console.log("Perfil carregado:", profileData);
       } else {
         navigate("/login");
       }
@@ -237,111 +236,114 @@ const Profile = () => {
 
   const renderContent = () => {
     switch (activeContent) {
-      case "add":
-        return <AddContent onClose={() => setActiveContent(null)} />;
-      default:
-        return (
-          <div className="bg-zinc-950 rounded-lg p-6 mb-8 mx-auto max-w-2xl mt-16">
-            <h1 className="text-center font-bold text-2xl mb-8">
-              Perfil de {isAdmin ? "Administrador" : "Usuário"}
-            </h1>
+    case "add":
+      return <AddContent onClose={() => setActiveContent(null)} />;
+    case "edit":
+      return <EditContent onClose={() => setActiveContent(null)} />;
+    case "delete":
+      return <DeleteContent onClose={() => setActiveContent(null)} />;
+    default:
+      return (
+        <div className="bg-zinc-950 rounded-lg p-6 mb-8 mx-auto max-w-2xl mt-16">
+          <h1 className="text-center font-bold text-2xl mb-8">
+            Perfil de {isAdmin ? "Administrador" : "Usuário"}
+          </h1>
 
-            <div className="flex flex-col items-center mb-6">
-              <div className="mb-8">
-                <div className="flex items-center justify-center mb-2">
-                  <EditableAvatar
-                    src={
-                      previewAvatarUrl ||
-                      profile?.avatar_url ||
-                      user?.user_metadata?.avatar_url ||
-                      userDefaultImage
-                    }
-                    isEditing={isEditingProfile}
-                    onChange={handleAvatarChange}
+          <div className="flex flex-col items-center mb-6">
+            <div className="mb-8">
+              <div className="flex items-center justify-center mb-2">
+                <EditableAvatar
+                  src={
+                    previewAvatarUrl ||
+                    profile?.avatar_url ||
+                    user?.user_metadata?.avatar_url ||
+                    userDefaultImage
+                  }
+                  isEditing={isEditingProfile}
+                  onChange={handleAvatarChange}
+                />
+              </div>
+
+              {isEditingProfile ? (
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="text-xl font-semibold  bg-zinc-800 rounded-full indent-4 outline-none py-1 mb-2 border-2 border-red-600"
+                />
+              ) : (
+                <h2 className="text-xl font-semibold text-center">
+                  {profile?.name ||
+                    user?.user_metadata?.name ||
+                    "Nome não definido"}
+                </h2>
+              )}
+
+              {isEditingProfile ? (
+                <div className="flex items-center mt-3">
+                  <Mail className="mr-3 text-red-600" />
+                  <AutoSizeInput
+                    value={editedEmail}
+                    onChange={(e) => setEditedEmail(e.target.value)}
+                    className="text-sm font-semibold max-width bg-zinc-800 rounded-full outline-none indent-3.5 py-2 mb-2 border-2 border-red-600"
                   />
                 </div>
+              ) : (
+                <InfoItem icon={<Mail />} text={user?.email} />
+              )}
 
-                {isEditingProfile ? (
-                  <input
-                    type="text"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    className="text-xl font-semibold  bg-zinc-800 rounded-full indent-4 outline-none py-1 mb-2 border-2 border-red-600"
-                  />
-                ) : (
-                  <h2 className="text-xl font-semibold text-center">
-                    {profile?.name ||
-                      user?.user_metadata?.name ||
-                      "Nome não definido"}
-                  </h2>
-                )}
-
-                {isEditingProfile ? (
-                  <div className="flex items-center mt-3">
-                    <Mail className="mr-3 text-red-600" />
-                    <AutoSizeInput
-                      value={editedEmail}
-                      onChange={(e) => setEditedEmail(e.target.value)}
-                      className="text-sm font-semibold max-width bg-zinc-800 rounded-full outline-none indent-3.5 py-2 mb-2 border-2 border-red-600"
-                    />
-                  </div>
-                ) : (
-                  <InfoItem icon={<Mail />} text={user?.email} />
-                )}
-
-                <InfoItem icon={<KeyRound />} text={getMaskedPassword()} />
-                <InfoItem
-                  icon={<Calendar />}
-                  text={`Conta criada em: ${new Date(
-                    user?.created_at
-                  ).toLocaleDateString("pt-BR")}`}
-                />
-                {isAdmin && <InfoItem icon={<UserCircle />} text="Admin" />}
-              </div>
-              <div className="flex justify-center gap-6">
-                {isEditingProfile ? (
-                  <>
-                    <button
-                      onClick={handleSaveProfile}
-                      className="bg-green-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-green-700"
-                    >
-                      <Check size={20} className="mr-2" /> Salvar
-                    </button>
-                    <button
-                      onClick={handleEditToggle}
-                      className="bg-red-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-700"
-                    >
-                      <X size={20} className="mr-2" /> Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleEditToggle}
-                      className="bg-green-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-green-700"
-                    >
-                      <UserRoundPen size={20} className="mr-2" /> Editar
-                      informações
-                    </button>
-                    <button
-                      onClick={handleDeleteProfile}
-                      className="bg-red-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-700"
-                    >
-                      <UserRoundX size={20} className="mr-2" /> Excluir Conta
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="bg-red-700 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-800"
-                    >
-                      <LogOut size={20} className="mr-2" />
-                      Fazer Logout
-                    </button>
-                  </>
-                )}
-              </div>
+              <InfoItem icon={<KeyRound />} text={getMaskedPassword()} />
+              <InfoItem
+                icon={<Calendar />}
+                text={`Conta criada em: ${new Date(
+                  user?.created_at
+                ).toLocaleDateString("pt-BR")}`}
+              />
+              {isAdmin && <InfoItem icon={<UserCircle />} text="Admin" />}
+            </div>
+            <div className="flex justify-center gap-6">
+              {isEditingProfile ? (
+                <>
+                  <button
+                    onClick={handleSaveProfile}
+                    className="bg-green-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-green-700"
+                  >
+                    <Check size={20} className="mr-2" /> Salvar
+                  </button>
+                  <button
+                    onClick={handleEditToggle}
+                    className="bg-red-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-700"
+                  >
+                    <X size={20} className="mr-2" /> Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleEditToggle}
+                    className="bg-green-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-green-700"
+                  >
+                    <UserRoundPen size={20} className="mr-2" /> Editar informações
+                  </button>
+                  <button
+                    onClick={handleDeleteProfile}
+                    className="bg-red-600 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-700"
+                  >
+                    <UserRoundX size={20} className="mr-2" /> Excluir Conta
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-700 p-3 rounded-md text-sm font-semibold flex items-center transition-colors duration-300 hover:bg-red-800"
+                  >
+                    <LogOut size={20} className="mr-2" />
+                    Fazer Logout
+                  </button>
+                </>
+              )}
             </div>
           </div>
-        );
+        </div>
+      );
     }
   };
 
@@ -390,12 +392,12 @@ const Profile = () => {
                     <SidebarButton2
                       icon={<Edit size={20} />}
                       text="Editar"
-                      onClick={() => setActiveModal("edit")}
+                      onClick={() => setActiveContent("edit")}
                     />
                     <SidebarButton2
                       icon={<Trash2 size={20} />}
                       text="Deletar"
-                      onClick={() => setActiveModal("delete")}
+                      onClick={() => setActiveContent("delete")}
                     />
                   </div>
                 </>
@@ -407,7 +409,7 @@ const Profile = () => {
 
       <div className="flex-1 ml-60 p-8 relative">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(-1)}
           className="absolute top-4 right-4 bg-red-600 transition-colors duration-300 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center"
         >
           <ArrowLeft size={20} className="mr-2" />

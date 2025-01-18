@@ -129,35 +129,32 @@ export async function getAnimeById(id) {
 }
 
 // Atualizar dados
-export async function updateMovie(id, changes) {
-  const { data, error } = await supabase
+export const updateMovie = async (id, data) => {
+  const { data: updatedData, error } = await supabase
     .from("movies")
-    .update(changes)
+    .update(data)
     .eq("id", id);
 
-  if (error) throw error;
-  return data;
-}
+  return { updatedData, error };
+};
 
-export async function updateSeries(id, changes) {
-  const { data, error } = await supabase
+export const updateSeries = async (id, data) => {
+  const { data: updatedData, error } = await supabase
     .from("series")
-    .update(changes)
+    .update(data)
     .eq("id", id);
 
-  if (error) throw error;
-  return data;
-}
+  return { updatedData, error };
+};
 
-export async function updateAnime(id, changes) {
-  const { data, error } = await supabase
+export const updateAnime = async (id, data) => {
+  const { data: updatedData, error } = await supabase
     .from("animes")
-    .update(changes)
+    .update(data)
     .eq("id", id);
 
-  if (error) throw error;
-  return data;
-}
+  return { updatedData, error };
+};
 
 export async function updateSeason(id, changes) {
   const { data, error } = await supabase

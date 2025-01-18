@@ -56,7 +56,7 @@ MovieList.propTypes = {
       id: PropTypes.string.isRequired,
       title: PropTypes.string.isRequired,
       posterUrl: PropTypes.string.isRequired,
-      releaseYear: PropTypes.string.isRequired,
+      releaseYear: PropTypes.number.isRequired,
     })
   ).isRequired,
 };
