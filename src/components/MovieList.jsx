@@ -1,8 +1,9 @@
+import React from "react";
 import PropTypes from "prop-types";
 import { CirclePlay } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-function MovieList({ movies }) {
+const MovieList = React.memo(({ movies }) => {
   const navigate = useNavigate();
   const handlePlayClick = (movieId) => {
     navigate(`/content/movie/${movieId}`);
@@ -48,7 +49,7 @@ function MovieList({ movies }) {
       </div>
     </div>
   );
-}
+});
 
 MovieList.propTypes = {
   movies: PropTypes.arrayOf(
@@ -60,5 +61,7 @@ MovieList.propTypes = {
     })
   ).isRequired,
 };
+
+MovieList.displayName = 'MovieList';
 
 export default MovieList;

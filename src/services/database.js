@@ -31,24 +31,32 @@ export async function addAnime(animeData) {
   return data[0];
 }
 
-export async function addSeason(seasonData) {
-  const { data, error } = await supabase
-    .from("seasons")
-    .insert([seasonData])
-    .select();
+export const addSeason = async (seasonData) => {
+  const { data, error } = await supabase.from("seasons").insert([
+    {
+      number: seasonData.number,
+      parentId: seasonData.parentId,
+      parentType: seasonData.parentType,
+    },
+  ]);
 
-  if (!error) throw error;
-  return data[0];
+  if (error) {
+    console.error("Erro ao criar temporada:", error);
+    throw error;
+  }
+
+  return data;
 }
 
-export async function addEpisode(episodeData) {
-  const { data, error } = await supabase
-    .from("episodes")
-    .insert([episodeData])
-    .select();
+export const addEpisode = async (episodeData) => {
+  const { data, error } = await supabase.from("episodes").insert({ episodeData });
 
-  if (!error) throw error;
-  return data[0];
+  if (error) {
+    console.error("Erro ao criar episódio:", error);
+    throw error;
+  }
+
+  return data;
 }
 
 // Buscar
@@ -156,14 +164,22 @@ export const updateAnime = async (id, data) => {
   return { updatedData, error };
 };
 
-export async function updateSeason(id, changes) {
+export const updateSeason = async (seasonId, seasonData) => {
   const { data, error } = await supabase
     .from("seasons")
-    .update(changes)
-    .eq("id", id);
+    .update({
+      number: seasonData.number,
+      parentId: seasonData.parentId,
+      parentType: seasonData.parentType,
+    })
+    .eq("id", seasonId);
 
-  if (error) throw error;
-  return data;
+   if (error) {
+     console.error("Erro ao atualizar temporada:", error);
+     throw error;
+   }
+
+   return data ? data[0] : null;
 }
 
 export async function updateEpisode(id, changes) {

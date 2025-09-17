@@ -33,7 +33,6 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
-  const [activeModal, setActiveModal] = useState(null);
   const [activeContent, setActiveContent] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -107,6 +106,15 @@ const Profile = () => {
     }
   }, [profile]);
 
+  // Cleanup blob URL when component unmounts or new image is selected
+  useEffect(() => {
+    return () => {
+      if (previewAvatarUrl && previewAvatarUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewAvatarUrl);
+      }
+    };
+  }, [previewAvatarUrl]);
+
   const getMaskedPassword = useCallback(() => {
     const passwordLength = user?.user_metadata?.password_length || 10;
     return maskPassword(passwordLength);
@@ -114,6 +122,7 @@ const Profile = () => {
 
   const handleEditToggle = () => {
     setIsEditingProfile(!isEditingProfile);
+
     if (!isEditingProfile) {
       setEditedName(user?.user_metadata?.name || "");
       setEditedEmail(user?.email || "");
@@ -123,6 +132,11 @@ const Profile = () => {
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Revoke previous blob URL if it exists
+      if (previewAvatarUrl && previewAvatarUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewAvatarUrl);
+      }
+      
       setEditedAvatar(file);
       const previewUrl = URL.createObjectURL(file);
       setPreviewAvatarUrl(previewUrl);
@@ -137,28 +151,18 @@ const Profile = () => {
         const fileExt = editedAvatar.name.split(".").pop();
         const fileName = `${user.id}-${Math.random()}.${fileExt}`;
 
-        console.log("Iniciando upload de arquivo:", fileName);
-
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(fileName, editedAvatar);
 
-        if (uploadError) {
-          console.error("Erro no upload:", uploadError);
-          throw uploadError;
-        }
-
-        console.log("Arquivo enviado com sucesso:", uploadData);
+        if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage
           .from("avatars")
           .getPublicUrl(uploadData.path);
 
         avatarUrl = publicUrlData.publicUrl;
-        console.log("Nova URL do avatar:", avatarUrl);
       }
-
-      console.log("Atualizando usuário com nova URL:", avatarUrl);
 
       const { data: userData, error: userError } =
         await supabase.auth.updateUser({
@@ -169,12 +173,7 @@ const Profile = () => {
           },
         });
 
-      if (userError) {
-        console.error("Erro ao atualizar usuário:", userError);
-        throw userError;
-      }
-
-      console.log("Usuário atualizado:", userData);
+      if (userError) throw userError;
 
       const { data: profileData, error: profileError } = await supabase
         .from("profile")
@@ -186,22 +185,16 @@ const Profile = () => {
         .select()
         .single();
 
-      if (profileError) {
-        console.error("Erro ao atualizar perfil:", profileError);
-        throw profileError;
-      }
-
-      console.log("Perfil atualizado:", profileData);
+      if (profileError) throw profileError;
 
       setUser(userData.user);
       setProfile(profileData);
       setIsEditingProfile(false);
       setPreviewAvatarUrl("");
 
-      console.log("Estados atualizados. Preview URL:", avatarUrl);
-
       alert("Perfil atualizado com sucesso!");
-      await fetchUserProfile();
+      
+      window.location.reload();
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       alert("Erro ao atualizar perfil: " + error.message);
@@ -347,6 +340,8 @@ const Profile = () => {
     }
   };
 
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-800 text-white flex items-center justify-center">
@@ -357,6 +352,8 @@ const Profile = () => {
 
   const isAdmin =
     profile?.is_admin || user?.email === "julyane.almeida77@gmail.com";
+  
+  
 
   return (
     <div className="flex min-h-screen bg-zinc-800 text-white">
@@ -365,7 +362,11 @@ const Profile = () => {
           <SidebarButton1
             icon={<EditIcon size={20} />}
             text="Editar Perfil"
-            onClick={handleEditToggle}
+            onClick={() => {
+              setActiveModal(null);
+              setActiveContent(null);
+              setIsEditingProfile(false);
+            }}
           />
 
           {isAdmin && (
@@ -392,7 +393,7 @@ const Profile = () => {
                     <SidebarButton2
                       icon={<Edit size={20} />}
                       text="Editar"
-                      onClick={() => setActiveContent("edit")}
+                      onClick={() => setActiveModal("edit")}
                     />
                     <SidebarButton2
                       icon={<Trash2 size={20} />}
@@ -415,20 +416,6 @@ const Profile = () => {
           <ArrowLeft size={20} className="mr-2" />
           Voltar
         </button>
-
-        {isAdmin && (
-          <>
-            {activeModal === "add" && (
-              <AddContent onClose={() => setActiveModal(null)} />
-            )}
-            {activeModal === "edit" && (
-              <EditContent onClose={() => setActiveModal(null)} />
-            )}
-            {activeModal === "delete" && (
-              <DeleteContent onClose={() => setActiveModal(null)} />
-            )}
-          </>
-        )}
 
         {renderContent()}
       </div>

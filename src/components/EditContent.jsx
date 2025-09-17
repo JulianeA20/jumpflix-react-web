@@ -1,6 +1,8 @@
 import PropTypes from "prop-types";
 import { useState, useEffect, useRef } from "react";
 import {
+  addSeason,
+  addEpisode,
   updateMovie,
   updateSeries,
   updateAnime,
@@ -59,6 +61,8 @@ const EditContent = ({ onClose }) => {
   };
 
   const handleSearch = async () => {
+    console.log("Buscando resultados...");
+
     let results;
     switch (selectedType) {
       case "movie":
@@ -74,17 +78,26 @@ const EditContent = ({ onClose }) => {
       default:
         results = [];
     }
+
+    console.log("Resultados brutos:", results);
+
     const filteredResults = results.filter((item) =>
       item.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    console.log("Resultados filtrados:", filteredResults);
+
     setSearchResults(filteredResults);
   };
 
-  const handleContentSelect = (content) => {
+  const handleContentSelect = async (content) => {
     setSelectedContent(content);
     setFormData(content);
     setPosterPreview(content.posterUrl);
     setThumbnailPreview(content.thumbnailUrl);
+
+    await fetchSeasonsAndEpisodes();
+
     setStep(2);
   };
 
@@ -167,22 +180,26 @@ const EditContent = ({ onClose }) => {
 
       setProgress(10);
 
-       const posterUrl =
-         formData.poster instanceof File
-           ? await uploadFile(formData.poster, "posters")
-           : selectedContent.posterUrl;
+      const posterUrl =
+        formData.poster instanceof File
+          ? await uploadFile(formData.poster, "posters")
+          : selectedContent.posterUrl;
 
-       const thumbnailUrl =
-         formData.thumbnail instanceof File
-           ? await uploadFile(formData.thumbnail, "thumbnails")
-           : selectedContent.thumbnailUrl;
+      setProgress(25);
 
-       const videoUrl =
-         formData.video instanceof File
-           ? await uploadFile(formData.video, "videos")
+      const thumbnailUrl =
+        formData.thumbnail instanceof File
+          ? await uploadFile(formData.thumbnail, "thumbnails")
+          : selectedContent.thumbnailUrl;
+
+      setProgress(50);
+
+      const videoUrl =
+        formData.video instanceof File
+          ? await uploadFile(formData.video, "videos")
           : selectedContent.videoUrl;
-      
-      setProgress(40);
+
+      setProgress(75);
 
       const contentData = {
         title: formData.title,
@@ -215,9 +232,12 @@ const EditContent = ({ onClose }) => {
       }
 
       if (!result || result.error) {
-        throw new Error(result?.error || "Erro desconhecido ao atualizar o conetúdo.");
+        throw new Error(
+          result?.error || "Erro desconhecido ao atualizar o conetúdo."
+        );
       }
 
+      setProgress(100);
       alert("Conteúdo atualizado com sucesso!");
       onClose();
     } catch (error) {
@@ -279,27 +299,88 @@ const EditContent = ({ onClose }) => {
     setStep(1);
   };
 
-  const handleAddSeason = () => {
-    setSeasons([...seasons, { number: seasons.length + 1, episodes: [] }]);
+  const handleAddSeason = async () => {
+    try {
+      const newSeasons = [...seasons];
+      const currentSeason = newSeasons[newSeasons.length - 1];
+
+      if (currentSeason) {
+        const seasonData = {
+          number: currentSeason.number,
+          parentId: selectedContent.id,
+          parentType: selectedType,
+          arc_name: currentSeason.arc_name || null,
+        };
+
+        if (currentSeason.id) {
+          const { error } = await updateSeason(currentSeason.id, seasonData);
+          if (error) throw error;
+        } else {
+          const { data, error } = await addSeason(seasonData);
+          if (error) throw error;
+
+          currentSeason.id = data[0].id;
+        }
+      }
+
+      newSeasons.push({
+        number: newSeasons.length + 1,
+        episodes: [],
+      });
+
+      setSeasons(newSeasons);
+    } catch (error) {
+      console.error("Erro ao salvar temporada:", error);
+      alert("Erro ao salvar temporada. Tente novamente.");
+    }
   };
 
-  const handleAddEpisode = (seasonIndex) => {
-    const newSeasons = [...seasons];
-    newSeasons[seasonIndex].episodes.push({
-      number: newSeasons[seasonIndex].episodes.length + 1,
-      title: "",
-      description: "",
-      thumbnailUrl: "",
-      videoUrl: "",
-    });
-    setSeasons(newSeasons);
-  };
+  const handleAddEpisode = async (seasonIndex) => {
+    try {
+      const newSeasons = [...seasons];
+      const currentSeason = newSeasons[seasonIndex];
 
-  const handleEpisodeChange = (seasonIndex, episodeIndex, field, value) => {
-    const newSeasons = [...seasons];
-    newSeasons[seasonIndex].episodes[episodeIndex][field] = value;
-    setSeasons(newSeasons);
-  };
+      const currentEpisode =
+        currentSeason.episodes[currentSeason.episodes.length - 1];
+
+      if (currentEpisode) {
+        const episodeData = {
+          number: currentEpisode.number,
+          title: currentEpisode.title,
+          description: currentEpisode.description,
+          season_id: currentSeason.id || null,
+          thumbnailUrl: currentEpisode.thumbnailUrl || null,
+          videoUrl: currentEpisode.videoUrl || null,
+        };
+
+        if (currentEpisode.id) {
+          const { error } = await updateEpisode(currentEpisode, episodeData);
+          if (error) throw error;
+        } else {
+          const { data, error } = await addEpisode(episodeData);
+          if (error) throw error;
+
+          currentSeason.episodes[currentSeason.episodes.length - 1].id =
+            data[0].id;
+        }
+      }
+
+      currentSeason.episodes = [
+        {
+          number: currentSeason.episodes.length + 1,
+          title: "",
+          description: "",
+          thumbnailUrl: null,
+          videoUrl: null,
+        },
+      ];
+
+      setSeasons(newSeasons);
+    } catch (error) {
+      console.error("Erro ao salvar episódio:", error);
+      alert("Erro ao salvar episódio. Tente novamente.");
+    }
+  }
 
   const uploadFile = async (file, bucket) => {
     if (!file) return null;
@@ -322,35 +403,77 @@ const EditContent = ({ onClose }) => {
   const handleSaveSeasons = async () => {
     setIsSubmitting(true);
     setProgress(0);
+
     try {
       for (const season of seasons) {
-        const seasonData = {
-          number: season.number,
-          parentId: selectedContent.id,
-          parentType: selectedType,
-        };
+        let savedSeason;
 
-        const { data: savedSeason } = await updateSeason(season.id, seasonData);
+        if (season.id) {
+          const { data, error } = await updateSeason(season.id, {
+            number: season.number,
+            parentId: selectedContent.id,
+            parentType: selectedType,
+          });
+
+          if (error) {
+            console.error("Erro ao atualizar temporada:", error);
+            throw new Error("Erro ao atualizar temporada.");
+          }
+          savedSeason = data;
+        } else {
+          const { data, error } = await addSeason({
+            number: season.number,
+            parentId: selectedContent.id,
+            parentType: selectedType,
+          });
+
+          if (error) {
+            console.error("Erro ao criar temporada:", error);
+            throw new Error("Erro ao criar temporada.");
+          }
+          savedSeason = data;
+        }
+
+        if (!savedSeason || !savedSeason.id) {
+          throw new Error("Erro ao salvar a temporada. ID não retornado.");
+        }
 
         for (const episode of season.episodes) {
           const episodeData = {
             number: episode.number,
             title: episode.title,
             description: episode.description,
-            seasonId: savedSeason.id,
+            season_id: savedSeason.id, // Associar episódio à temporada
           };
 
-          episodeData.thumbnailUrl =
-            episode.thumbnail instanceof File
-              ? await uploadFile(episode.thumbnail, "thumbnails")
-              : episode.thumbnailUrl;
+          if (episode.thumbnail instanceof File) {
+            episodeData.thumbnailUrl = await uploadFile(
+              episode.thumbnail,
+              "thumbnails"
+            );
+          } else {
+            episodeData.thumbnailUrl = episode.thumbnailUrl || null;
+          }
 
-          episodeData.videoUrl =
-            episode.video instanceof File
-              ? await uploadFile(episode.video, "videos")
-              : episode.videoUrl;
+          if (episode.video instanceof File) {
+            episodeData.videoUrl = await uploadFile(episode.video, "videos");
+          } else {
+            episodeData.videoUrl = episode.videoUrl || null;
+          }
 
-          await updateEpisode(episode.id, episodeData);
+          if (episode.id) {
+            const { error } = await updateEpisode(episode.id, episodeData);
+            if (error) {
+              console.error("Erro ao atualizar episódio:", error);
+              throw new Error("Erro ao atualizar episódio.");
+            }
+          } else {
+            const { error } = await addEpisode(episodeData);
+            if (error) {
+              console.error("Erro ao criar episódio:", error);
+              throw new Error("Erro ao criar episódio.");
+            }
+          }
         }
 
         setProgress((prevProgress) => prevProgress + 100 / seasons.length);
@@ -372,6 +495,36 @@ const EditContent = ({ onClose }) => {
     }
   };
 
+  const fetchSeasonsAndEpisodes = async () => {
+    try {
+      const { data: seasonsData, error: seasonsError } = await supabase
+        .from("seasons")
+        .select(
+          "id, numberm arc_name, episodes (id, number, title, description, thumbnailUrl, videoUrl)"
+        )
+        .eq("parentId", selectedContent.id)
+        .order("number", { ascending: true });
+
+      if (seasonsError) {
+        console.error("Erro ao buscar temporadas:", seasonsError);
+        throw seasonsError;
+      }
+
+      setSeasons(
+        seasonsData.map((season) => ({
+          id: season.id,
+          number: season.number,
+          arc_name: season.arc_name,
+          episodes: season.episodes || [],
+        }))
+      );
+    } catch (error) {
+      console.error("Erro ao carregar temporadas e episódios:", error);
+      alert("Erro ao carregar temporadas e episódios. Tente novamente.");
+    }
+  };
+
+  // eslint-disable-next-line no-unused-vars
   const renderForm = () => {
     if (step === 1) {
       return (
@@ -537,19 +690,40 @@ const EditContent = ({ onClose }) => {
               </div>
             </>
           )}
+          {isSubmitting && (
+            <div className="mb-4">
+              <div className="bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <p className="text-center text-sm mt-2">Atualizando conteúdo... {progress}%</p>
+            </div>
+          )}
           <div className="flex justify-between">
             {selectedType === "movie" ? (
               <button
                 type="submit"
-                className="bg-green-600 hover:bg-green-700 text-sm text-white font-bold py-2 px-4 rounded"
+                disabled={isSubmitting}
+                className={`text-sm text-white font-bold py-2 px-4 rounded ${
+                  isSubmitting 
+                    ? 'bg-gray-500 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
-                Atualizar Filme
+                {isSubmitting ? 'Atualizando...' : 'Atualizar Filme'}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="bg-green-600 hover:bg-green-700 text-sm text-white font-bold py-2 px-4 rounded"
+                disabled={isSubmitting}
+                className={`text-sm text-white font-bold py-2 px-4 rounded ${
+                  isSubmitting 
+                    ? 'bg-gray-500 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
                 Avançar
               </button>
@@ -573,71 +747,40 @@ const EditContent = ({ onClose }) => {
           {seasons.map((season, seasonIndex) => (
             <div key={seasonIndex} className="mb-6">
               <h4 className="text-lg font-semibold mb-2">
-                Temporada {season.number}
+                Temporada {season.number}{" "}
+                {season.arc_name && `- ${season.arc_name}`}
               </h4>
-              {season.episodes.map((episode, episodeIndex) => (
-                <div
-                  key={episodeIndex}
-                  className="mb-4 p-4 bg-zinc-800 rounded-lg"
-                >
-                  <h5 className="font-semibold mb-2">
-                    Episódio {episode.number}
-                  </h5>
-                  <input
-                    type="text"
-                    value={episode.title}
-                    onChange={(e) =>
-                      handleEpisodeChange(
-                        seasonIndex,
-                        episodeIndex,
-                        "title",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Título do episódio"
-                    className="w-full p-2 mb-2 bg-zinc-900 rounded-full border-2 border-red-600 indent-2 text-sm outline-none"
-                  />
-                  <textarea
-                    value={episode.description}
-                    onChange={(e) =>
-                      handleEpisodeChange(
-                        seasonIndex,
-                        episodeIndex,
-                        "description",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Descrição do episódio"
-                    className="w-full p-2 mb-2 bg-zinc-900 border-2 border-red-600 rounded-lg text-sm outline-none"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      handleEpisodeChange(
-                        seasonIndex,
-                        episodeIndex,
-                        "thumbnail",
-                        e.target.files[0]
-                      )
-                    }
-                    className="w-full px-4 py-2 mb-2 border-2 border-red-600 rounded-full text-sm"
-                  />
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) =>
-                      handleEpisodeChange(
-                        seasonIndex,
-                        episodeIndex,
-                        "video",
-                        e.target.files[0]
-                      )
-                    }
-                    className="w-full px-4 py-2 border-2 border-red-600 rounded-full text-sm"
-                  />
-                </div>
-              ))}
+              {season.episodes.length > 0 ? (
+                season.episodes.map((episode, episodeIndex) => (
+                  <div
+                    key={episodeIndex}
+                    className="mb-4 p-4 bg-zinc-800 rounded-lg"
+                  >
+                    <h5 className="font-semibold mb-4">
+                      Episódio {episode.number}: {episode.title}
+                    </h5>
+                    <p className="mb-2">{episode.description}</p>
+                    {episode.thumbnailUrl && (
+                      <img
+                        src={episode.thumbnailUrl}
+                        alt={`Thumbnail do Episódio ${episode.number}`}
+                        className="mb-4 max-w-xs"
+                      />
+                    )}
+                    {episode.videoUrl && (
+                      <a
+                        href={episode.videoUrl}
+                        rel="noopener noreferrer"
+                        className="text-blue-500 underline"
+                      >
+                        Assistir ao vídeo
+                      </a>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-400">Nenhum episódio encontrado.</p>
+              )}
               <button
                 type="button"
                 onClick={() => handleAddEpisode(seasonIndex)}
@@ -673,47 +816,82 @@ const EditContent = ({ onClose }) => {
         </div>
       );
     }
-  };
 
-  return (
-    <div className="bg-zinc-950 rounded-lg p-6 mb-8 mx-auto max-w-2xl mt-16">
-      <h2 className="text-center font-bold  text-2xl mb-8">Editar Conteúdo</h2>
-      {!selectedType ? (
-        <div>
-          <p className="mb-4 text-center">
-            Qual tipo de conteúdo deseja editar?
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            {contentTypes.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => handleTypeSelect(type.id)}
-                className="bg-red-600 transition-colors duration-300 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-              >
-                {type.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <>
-          {renderForm()}
-          {isSubmitting && (
-            <div className="mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                <div
-                  className="bg-red-600 h-2.5 rounded-full"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <p className="text-center mt-2">{Math.round(progress)}%</p>
+    return (
+      <div className="bg-zinc-950 rounded-lg p-6 mb-8 mx-auto max-w-2xl mt-16">
+        <h2 className="text-center font-bold  text-2xl mb-8">
+          Editar Conteúdo
+        </h2>
+        {!selectedType ? (
+          <div>
+            <p className="mb-4 text-center">
+              Qual tipo de conteúdo deseja editar?
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {contentTypes.map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => handleTypeSelect(type.id)}
+                  className="bg-red-600 transition-colors duration-300 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  {type.name}
+                </button>
+              ))}
             </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-};
+          </div>
+        ) : step === 1 ? (
+          <div>
+            <h4 className="text-center text-xl font-bold mb-4">
+              Pesquisar{" "}
+              {contentTypes.find((type) => type.id === selectedType).name}
+            </h4>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar conteúdo..."
+              className="w-full p-2 mb-4 bg-zinc-900 rounded-full border-2 border-red-600 indent-2 text-sm outline-none"
+            />
+            <button
+              onClick={handleSearch}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full mb-4"
+            >
+              <Search className="inline mr-2" size={20} />
+              Buscar
+            </button>
+            {searchResults.length > 0 ? (
+              <ul className="bg-zinc-800 rounded-lg p-4">
+                {searchResults.map((item) => (
+                  <li
+                    key={item.id}
+                    onClick={() => handleContentSelect(item)}
+                    className="cursor-pointer hover:bg-zinc-700 p-2 rounded"
+                  >
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              searchTerm && (
+                <p className="text-center text-gray-400">
+                  Nenhum resultado encontrado.
+                </p>
+              )
+            )}
+            <button
+              onClick={handleCancel}
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mt-4"
+            >
+              Voltar
+            </button>
+          </div>
+        ) : (
+          renderForm()
+        )}
+      </div>
+    );
+  }
+}
 
 EditContent.propTypes = {
   onClose: PropTypes.func.isRequired,

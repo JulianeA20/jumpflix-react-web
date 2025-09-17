@@ -1,501 +1,450 @@
-import { useState, useRef, useMemo, useEffect } from "react";
-import { addMovie, addSeries, addAnime } from "../services/database";
+import { useState } from "react";
+import PropTypes from "prop-types";
 import { supabase } from "../services/supabaseClient";
-import { v4 as uuidv4 } from "uuid";
+import ReleaseYearSelect from "./ReleaseYearSelect";
+import SeasonsArcsSelect from "./SeasonsArcsSelect";
+import SeasonsOrEpisodes from "./SeasonsOrEpisodes";
 import { CircleMinus, CirclePlus } from "lucide-react";
 
-const contentTypes = [
-  { id: "movie", name: "Filme" },
-  { id: "series", name: "Série" },
-  { id: "kdrama", name: "Dorama" },
-  { id: "anime", name: "Anime" },
-];
+const AddContent = ({ onClose }) => {
+  const [step, setStep] = useState(1);
+  const [contentType, setContentType] = useState(null);
+  const [imdbInterval, setImdbInterval] = useState(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    releaseYear: "",
+    imdbRating: 0,
+    synopsis: "",
+    posterUrl: null,
+    thumbnailUrl: null,
+    videoUrl: null,
+    duration: "",
+    seasons: 1,
+  });
 
-const AddContent = () => {
-  const [selectedType, setSelectedType] = useState(null);
-  const [formData, setFormData] = useState({});
-  const [posterPreview, setPosterPreview] = useState(null);
-  const [thumbnailPreview, setThumbnailPreview] = useState(null);
-  const [isIncrementing, setIsIncrementing] = useState(false);
-  const [isDecrementing, setIsDecrementing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const ratingIntervalRef = useRef(null);
-  const longPressTimeoutRef = useRef(null);
-  const videoRef = useRef(null);
-
-  const generateYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let year = 1930; year <= currentYear; year++) {
-      years.push(year);
-    }
-    return years.reverse();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        URL.revokeObjectURL(videoRef.current.src);
-      }
-    };
-  }, []);
-
-  const handleTypeSelect = (type) => {
-    setSelectedType(type);
-    setFormData({});
-    setPosterPreview(null);
-    setThumbnailPreview(null);
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: files ? files[0] : value,
+    }));
   };
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleSelectContentType = (type) => {
+    setContentType(type);
+    setStep(2);
   };
 
-  const handleRatingChange = (change) => {
-    setFormData((prev) => {
-      const currentRating = parseFloat(prev.imdbRating) || 0;
-      const newRating = Math.min(10, Math.max(0, currentRating + change));
-      return { ...prev, imdbRating: newRating.toFixed(1) };
+  const handleBackToTypeSelection = () => {
+    setStep(1);
+    setContentType(null);
+    setFormData({
+      title: "",
+      releaseYear: "",
+      imdbRating: "",
+      synopsis: "",
+      posterUrl: "",
+      thumbnailUrl: "",
+      videoUrl: "",
+      seasons: 1,
     });
   };
 
-  useEffect(() => {
-    if (isIncrementing) {
-      ratingIntervalRef.current = setInterval(
-        () => handleRatingChange(0.1),
-        100
-      );
-    } else if (isDecrementing) {
-      ratingIntervalRef.current = setInterval(
-        () => handleRatingChange(-0.1),
-        100
-      );
-    } else {
-      clearInterval(ratingIntervalRef.current);
+  const handleImdbPlus = () => {
+    setFormData((prevData) => {
+      const newRating = Math.min(10, +(prevData.imdbRating + 0.1).toFixed(1));
+      return { ...prevData, imdbRating: newRating };
+    });
+  };
+
+  const handleImdbMinus = () => {
+    setFormData((prevData) => {
+      const newRating = Math.max(0, +(prevData.imdbRating - 0.1).toFixed(1));
+      return { ...prevData, imdbRating: newRating };
+    });
+  };
+
+  const startImdbContinuous = (modifier) => {
+    if (imdbInterval) return;
+    const fn = modifier > 0 ? handleImdbPlus : handleImdbMinus;
+    const interval = setInterval(fn, 100);
+    setImdbInterval(interval);
+  };
+
+  const stopImdbContinuous = () => {
+    if (imdbInterval) {
+      clearInterval(imdbInterval);
+      setImdbInterval(null);
+    }
+  };
+
+  const uploadFile = async (bucket, file) => {
+    if (!file) return null;
+
+    const filePath = `${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file);
+
+    if (error) {
+      console.error("Erro ao fazer upload:", error);
+      return null;
     }
 
-    return () => {
-      clearInterval(ratingIntervalRef.current);
-      clearTimeout(longPressTimeoutRef.current);
-    };
-  }, [isIncrementing, isDecrementing]);
-
-  const startIncrementing = () => {
-    handleRatingChange(0.1);
-    longPressTimeoutRef.current = setTimeout(() => {
-      setIsIncrementing(true);
-    }, 250);
+    const { publicUrl } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath).data;
+    return publicUrl;
   };
 
-  const startDecrementing = () => {
-    handleRatingChange(-0.1);
-    longPressTimeoutRef.current = setTimeout(() => {
-      setIsDecrementing(true);
-    }, 250);
-  };
-  const stopChanging = () => {
-    setIsIncrementing(false);
-    setIsDecrementing(false);
-    clearTimeout(longPressTimeoutRef.current);
+  const calculateVideoDuration = (videoFile) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+
+          const durationInSeconds = video.duration;
+          if (isNaN(durationInSeconds)) {
+            reject("O arquivo de vídeo parece inválido ou não tem duração.");
+          }
+
+          const hours = Math.floor(durationInSeconds / 3600);
+          const minutes = Math.floor((durationInSeconds % 3600) / 60);
+          const seconds = Math.floor(durationInSeconds % 60);
+
+          const formattedDuration = [
+            hours.toString().padStart(2, "0"),
+            minutes.toString().padStart(2, "0"),
+            seconds.toString().padStart(2, "0"),
+          ].join(":");
+
+          resolve(formattedDuration);
+        };
+
+        video.onerror = () => {
+          reject("Erro ao carregar vídeo. Verifique o arquivo.");
+        };
+
+        video.src = URL.createObjectURL(videoFile);
+      } catch (error) {
+        reject("Erro ao calcular a duração do vídeo.");
+        alert("Erro ao calcular a duração do video:", error);
+      }
+    });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setProgress(0);
+  const handleSaveAndAdvance = async () => {
     try {
-      const uploadFile = async (file, bucket) => {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(fileName, file, {
-            onUploadProgress: (progressEvent) => {
-              const percent =
-                (progressEvent.loaded / progressEvent.total) * 100;
-              setProgress((prevProgress) => Math.max(prevProgress, percent));
+      const posterUrl = await uploadFile("posters", formData.posterUrl);
+
+      let response;
+
+      if (contentType === "Série" || contentType === "Dorama") {
+        response = await supabase
+          .from("series")
+          .insert([
+            {
+              title: formData.title.trim(),
+              releaseYear: formData.releaseYear,
+              imdbRating: formData.imdbRating,
+              synopsis: formData.synopsis,
+              posterUrl,
+              isDorama: contentType === "Dorama",
             },
-          });
+          ])
+          .select();
 
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(fileName);
-
-        return urlData.publicUrl;
-      };
-
-      setProgress(10);
-      const posterUrl = await uploadFile(formData.poster, "posters");
-      setProgress(40);
-
-      let thumbnailUrl = null;
-      if (formData.thumbnail) {
-        thumbnailUrl = await uploadFile(formData.thumbnail, "thumbnails");
-      }
-      setProgress(70);
-
-      let videoUrl = null;
-      if (formData.video) {
-        videoUrl = await uploadFile(formData.video, "videos");
-      }
-      setProgress(90);
-
-      const contentData = {
-        title: formData.title,
-        releaseYear: parseInt(formData.releaseYear),
-        imdbRating: parseFloat(formData.imdbRating),
-        synopsis: formData.synopsis,
-        posterUrl,
-        thumbnailUrl,
-        videoUrl,
-        duration: formData.duration ? parseInt(formData.duration) : null,
-      };
-
-      let result;
-      switch (selectedType) {
-        case "movie":
-          result = await addMovie(contentData);
-          break;
-        case "series":
-        case "kdrama":
-          result = await addSeries({
-            ...contentData,
-            isDorama: selectedType === "kdrama",
-          });
-          break;
-        case "anime":
-          result = await addAnime(contentData);
-          break;
-        default:
-          throw new Error("Tipo de conteúdo desconhecido");
-      }
-
-      if (result.error) throw result.error;
-
-      setProgress(100);
-      alert("Conteúdo adicionado com sucesso!");
-      setSelectedType(null);
-      setFormData({});
-      setPosterPreview(null);
-      setThumbnailPreview(null);
-    } catch (error) {
-      console.error("Erro ao adicionar conteúdo:", error);
-      alert("Erro ao adicionar conteúdo. Por favor, tente novamente.");
-    } finally {
-      setIsSubmitting(false);
-      setProgress(0);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (e.target.name === "poster") {
-          setPosterPreview(reader.result);
-        } else if (e.target.name === "thumbnail") {
-          setThumbnailPreview(reader.result);
+        if (response.error || !response.data || response.data.length === 0) {
+          throw new Error(response.error?.message ||"Erro ao salvar a série ou dorama.");
         }
-      };
-      reader.readAsDataURL(file);
-      setFormData({ ...formData, [e.target.name]: file });
-    }
-  };
 
-  const handleVideoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData({ ...formData, video: file });
+        const seriesId = response.data[0].id;
 
-      if (!videoRef.current) {
-        videoRef.current = document.createElement("video");
+        const seasonsPayload = Array.from({ length: formData.seasons }).map(
+          (_, index) => ({
+            parentId: seriesId,
+            number: index + 1,
+            parentType: "series",
+          })
+        );
+
+        const seasonsResponse = await supabase.from("seasons").insert(seasonsPayload);
+      if (seasonsResponse.error) throw seasonsResponse.error;
+    } else if (contentType === "Anime") {
+      response = await supabase
+        .from("animes")
+        .insert([
+          {
+            title: formData.title.trim(),
+            releaseYear: formData.releaseYear,
+            imdbRating: formData.imdbRating,
+            synopsis: formData.synopsis.trim(),
+            posterUrl,
+          },
+        ])
+        .select();
+
+      if (response.error || !response.data || response.data.length === 0) {
+        throw new Error(response.error?.message ||"Erro ao salvar o anime.");
       }
 
-      const video = videoRef.current;
-      video.src = URL.createObjectURL(file);
+      const animeId = response.data[0].id;
 
-      video.onloadedmetadata = () => {
-        setFormData((prevData) => ({
-          ...prevData,
-          duration: Math.round(video.duration / 60),
-        }));
+      const arcsPayload = Array.from({ length: formData.seasons }).map(
+        (_, index) => ({
+          anime_id: animeId,
+          number: index + 1,
+        })
+      );
 
-        URL.revokeObjectURL(video.src);
-      };
+      const arcsResponse = await supabase.from("arcs").insert(arcsPayload);
+      if (arcsResponse.error) throw arcsResponse.error;
+    }
+
+      setStep(3);
+    } catch (error) {
+      console.error("Erro ao salvar o conteúdo:", error);
+      alert("Erro ao salvar, tente novamente.");
     }
   };
 
-  const handleCancel = () => {
-    setSelectedType(null);
-    setFormData({});
-    setPosterPreview(null);
-    setThumbnailPreview(null);
-  };
+  const handleSave = async () => {
+    try {
+      const posterUrl = await uploadFile("posters", formData.posterUrl);
+      const thumbnailUrl = await uploadFile(
+        "thumbnails",
+        formData.thumbnailUrl
+      );
+      const videoUrl = await uploadFile("videos", formData.videoUrl);
 
-  const commonFields = (
-    <>
-      <label className="block text-sm font-bold ml-2 mb-2">Titulo</label>
-      <input
-        type="text"
-        name="title"
-        value={formData.title || ""}
-        onChange={handleInputChange}
-        className="w-full p-2 mb-4 bg-zinc-900 rounded-full border-2 border-red-600 indent-2 text-sm outline-none"
-        required
-      />
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col w-full md:w-1/2 pr-4">
-          <label className="block text-sm font-bold ml-2 mb-2">
-            Ano de lançamento
-          </label>
-          <div className="relative">
-            <select
-              name="releaseYear"
-              value={formData.releaseYear || ""}
-              onChange={handleInputChange}
-              className="w-full px-5 py-2 mb-4 bg-zinc-900 rounded-full border-2 border-red-600 text-sm outline-none appearance-none"
-              required
-            >
-              <option value="" disabled className="text-sm">
-                Selecione o ano
-              </option>
-              {generateYears.map((year) => (
-                <option key={year} value={year} className="text-sm">
-                  {year}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute top-3.5 right-1 flex items-center px-2 text-zinc-200">
-              <svg
-                className="fill-current h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-bold ml-2 mb-2">
-            Avaliação IMDB
-          </label>
-          <div className="flex items-center">
-            <div className="relative flex-grow mr-2">
-              <input
-                type="text"
-                name="imdbRating"
-                value={formData.imdbRating || ""}
-                onChange={handleInputChange}
-                className="w-full p-2 bg-zinc-900 text-sm rounded-full border-2 border-red-600 indent-2 outline-none"
-                readOnly
-              />
-            </div>
-            <div className="flex flex-col">
-              <button
-                type="button"
-                onMouseDown={startIncrementing}
-                onMouseUp={stopChanging}
-                onMouseLeave={stopChanging}
-                className="mb-1 focus:outline-none"
-              >
-                <CirclePlus
-                  size={20}
-                  className="transition-colors duration-300 hover:text-red-600"
-                />
-              </button>
-              <button
-                type="button"
-                onMouseDown={startDecrementing}
-                onMouseUp={stopChanging}
-                onMouseLeave={stopChanging}
-                className="focus:outline-none"
-              >
-                <CircleMinus
-                  size={20}
-                  className=" transition-colors duration-300 hover:text-red-600"
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <label className="block text-sm font-bold ml-2 mb-2">Sinopse</label>
-      <textarea
-        name="synopsis"
-        value={formData.synopsis || ""}
-        onChange={handleInputChange}
-        className="w-full p-2 mb-4 bg-zinc-900 border-2 border-red-600 rounded-lg text-sm outline-none"
-        required
-      />
-      <div>
-        <label className="block text-sm font-bold ml-2 mb-2">Poster</label>
-        <input
-          type="file"
-          name="poster"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="w-full px-4 py-2 mb-4 border-2 border-red-600 rounded-full text-sm"
-          required
-        />
-        {posterPreview && (
-          <img
-            src={posterPreview}
-            alt="Poster Preview"
-            className="mt-2 max-w-xs"
-          />
-        )}
-      </div>
-    </>
-  );
+      let duration = "";
+      if (formData.videoUrl) {
+        duration = await calculateVideoDuration(formData.videoUrl);
+      }
 
-  const renderForm = () => {
-    switch (selectedType) {
-      case "movie":
-        return (
-          <form onSubmit={handleSubmit}>
-            {commonFields}
-            <div className="mb-4">
-              <label className="block text-sm font-bold ml-2 mb-2">
-                Thumbnail
-              </label>
-              <input
-                type="file"
-                name="thumbnail"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="w-full px-4 py-2 border-2 border-red-600 rounded-full text-sm"
-                required
-              />
-              {thumbnailPreview && (
-                <img
-                  src={thumbnailPreview}
-                  alt="Thumbnail Preview"
-                  className="mt-2 max-w-xs"
-                />
-              )}
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-bold ml-2 mb-2">Vídeo</label>
-              <input
-                type="file"
-                name="video"
-                accept="video/*"
-                onChange={handleVideoChange}
-                className="w-full px-4 py-2 border-2 border-red-600 rounded-full text-sm"
-                required
-              />
-            </div>
+      const response = await supabase.from("movies").insert([
+        {
+          title: formData.title.trim(),
+          releaseYear: formData.releaseYear,
+          imdbRating: formData.imdbRating,
+          synopsis: formData.synopsis.trim(),
+          posterUrl,
+          thumbnailUrl,
+          videoUrl,
+          duration, // Duração do vídeo no formato `hh:mm:ss`
+        },
+      ]);
 
-            <div className="flex justify-between">
-              <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Adicionar Filme
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="bg-red-600 hover:bg-red-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        );
-      case "series":
-      case "kdrama":
-        return (
-          <form onSubmit={handleSubmit}>
-            {commonFields}
-            <div className="flex justify-between">
-              <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Adicionar {selectedType === "series" ? "Série" : "Dorama"}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="bg-red-600 hover:bg-red-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        );
-      case "anime":
-        return (
-          <form onSubmit={handleSubmit}>
-            {commonFields}
-            <div className="flex justify-between">
-              <button
-                type="submit"
-                className="bg-green-600 hover:bg-green-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Adicionar Anime
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="bg-red-600 hover:bg-red-700 text-sm text-white font-bold py-2 px-4 rounded"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        );
-      default:
-        return null;
+      if (response.error) {
+        throw response.error;
+      }
+
+      alert("Conteúdo salvo com sucesso!");
+      onClose();
+    } catch (error) {
+      console.error("Erro ao salvar o filme:", error);
+      alert("Erro ao salvar o filme, tente novamente.");
     }
   };
 
   return (
     <div className="bg-zinc-950 rounded-lg p-6 mb-8 mx-auto max-w-2xl mt-16">
-      <h2 className="text-center font-bold text-2xl mb-8">
-        Adicionar Conteúdo
-      </h2>
-      {!selectedType ? (
+      {step === 1 && (
         <div>
+          <h2 className="text-xl font-bold mb-4 text-center">
+            Adicionar Conteúdo
+          </h2>
           <p className="mb-4 text-center">
             Qual tipo de conteúdo você deseja adicionar?
           </p>
           <div className="grid grid-cols-2 gap-4">
-            {contentTypes.map((type) => (
+            {["Filme", "Série", "Dorama", "Anime"].map((type) => (
               <button
-                key={type.id}
-                onClick={() => handleTypeSelect(type.id)}
-                className="bg-red-600 transition-colors duration-300 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                key={type}
+                onClick={() => handleSelectContentType(type)}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
               >
-                {type.name}
+                {type}
               </button>
             ))}
           </div>
         </div>
-      ) : (
-        <>
-          {renderForm()}
-          {isSubmitting && (
-            <div className="mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                <div
-                  className="bg-red-600 h-2.5 rounded-full"
-                  style={{ width: `${progress}` }}
-                ></div>
-                </div>
-                <p className="text-center mt-2">{Math.round(progress)}%</p>
-            </div>
-          )}
-        </>
       )}
+
+      {step === 2 && (
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-center">
+            Adicionar {contentType}
+          </h2>
+          <label className="text-sm font-bold block mb-2 ml-2 focus:outline-none">
+            Título
+          </label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            className="mb-2 px-4 py-2 w-full border-2 border-red-600 bg-transparent rounded-full focus:outline-none"
+          />
+          <div className="flex justify-between">
+            <div>
+              <label className="text-sm font-bold block mb-2">
+                Ano de lançamento
+              </label>
+              <ReleaseYearSelect
+                value={formData.releaseYear}
+                onChange={(e) =>
+                  handleChange({
+                    target: { name: "releaseYear", value: e.target.value },
+                  })
+                }
+              />
+            </div>
+
+            {contentType !== "Filme" && (
+              <div>
+                <label className="text-sm font-bold block mb-2">
+                  Número de {contentType === "Anime" ? "Arcos" : "Temporadas"}
+                </label>
+                <SeasonsArcsSelect
+                  value={formData.totalSeasons}
+                  onChange={(e) =>
+                    handleChange({
+                      target: { name: "seasons", value: e.target.value },
+                    })
+                  }
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-bold block mb-2 ml-2">
+                Nota IMDb
+              </label>
+              <div className="flex flex-row gap-2">
+                <input
+                  type="text"
+                  name="imdbRating"
+                  value={formData.imdbRating}
+                  readOnly
+                  className="mb-2 px-4 py-2 w-24 bg-transparent border-2 border-red-600 rounded focus:outline-none"
+                />
+                <div className="flex flex-col gap-1">
+                  <CirclePlus
+                    size={20}
+                    onClick={handleImdbPlus}
+                    onMouseDown={() => startImdbContinuous(1)}
+                    onMouseUp={stopImdbContinuous}
+                    onMouseLeave={stopImdbContinuous}
+                    className="transition-colors duration-300 hover:text-red-600"
+                    tabIndex={-1}
+                  />
+                  <CircleMinus
+                    size={20}
+                    onClick={handleImdbMinus}
+                    onMouseDown={() => startImdbContinuous(-1)}
+                    onMouseUp={stopImdbContinuous}
+                    onMouseLeave={stopImdbContinuous}
+                    className="transition-colors duration-300 hover:text-red-600"
+                    tabIndex={-1}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <label className="text-sm font-bold block mb-2 ml-2">Sinopse</label>
+          <textarea
+            name="synopsis"
+            value={formData.synopsis}
+            onChange={handleChange}
+            className="mb-2 px-4 py-2 w-full border-2 border-red-600 bg-transparent rounded focus:outline-none"
+          ></textarea>
+          <label className="text-sm font-bold block mb-2 ml-2">
+            Poster de {contentType}
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            name="posterUrl"
+            onChange={handleChange}
+            className="mb-2 px-4 py-2 w-full text-center text-sm border-2 border-red-600 bg-transparent rounded-full"
+          />
+
+          {contentType === "Filme" && (
+            <>
+              <label className="text-sm font-bold block mb-2 ml-2">
+                Thumbnail do Filme
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                name="thumbnailUrl"
+                onChange={handleChange}
+                className="mb-2 px-4 py-2 w-full text-center text-sm border-2 border-red-600 bg-transparent rounded-full"
+              />
+
+              <label className="text-sm font-bold block mb-2 ml-2">
+                Vídeo do Filme
+              </label>
+              <input
+                type="file"
+                accept="video/*"
+                name="videoUrl"
+                onChange={handleChange}
+                className="mb-2 px-4 py-2 w-full text-center text-sm border-2 border-red-600 bg-transparent rounded-full"
+              />
+            </>
+          )}
+
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={handleBackToTypeSelection}
+              className="transition-colors duration-300 bg-gray-600 hover:bg-gray-700 py-2 px-4 rounded font-semibold"
+            >
+              Voltar
+            </button>
+            {contentType === "Filme" ? (
+              <button
+                onClick={handleSave}
+                className="transition-colors duration-300 bg-green-600 hover:bg-green-700 py-2 px-4 rounded font-semibold"
+              >
+                Salvar
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveAndAdvance}
+                className="transition-colors duration-300 bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded font-semibold"
+              >
+                Continuar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 3 &&
+        (contentType === "Série" ||
+        contentType === "Dorama" ||
+        contentType === "Anime") && (
+          <SeasonsOrEpisodes
+            contentType={contentType}
+            formData={formData}
+            onComplete={() => {
+              onClose()
+            }}
+            onBackToContentSelection={handleBackToTypeSelection}
+          />
+        )}
     </div>
   );
+};
+
+AddContent.propTypes = {
+  onClose: PropTypes.func.isRequired,
 };
 
 export default AddContent;

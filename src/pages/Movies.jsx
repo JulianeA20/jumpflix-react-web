@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import PageLayout from "../components/PageLayout";
 import MovieList from "../components/MovieList";
 import { getMovies } from "../services/database";
@@ -9,7 +9,6 @@ const ITEMS_PER_PAGE = 30;
 
 const Movies = () => {
   const [allMovies, setAllMovies] = useState([]);
-  const [filteredMovies, setFilteredMovies] = useState([]);
   const [currentLetter, setCurrentLetter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -17,40 +16,43 @@ const Movies = () => {
     const fetchMovies = async () => {
       const movies = await getMovies();
       setAllMovies(movies);
-      setFilteredMovies(movies);
     };
     fetchMovies();
   }, []);
 
-  useEffect(() => {
+  const filteredMovies = useMemo(() => {
     if (currentLetter) {
-      const filtered = allMovies.filter((movie) =>
+      return allMovies.filter((movie) =>
         movie.title.toUpperCase().startsWith(currentLetter)
       );
-      setFilteredMovies(filtered);
-      setCurrentPage(1);
-    } else {
-      setFilteredMovies(allMovies);
     }
+    return allMovies;
   }, [currentLetter, allMovies]);
 
-  const totalPages = Math.ceil(filteredMovies.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentMovies = filteredMovies.slice(startIndex, endIndex);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentLetter]);
 
-  const handleLetterClick = (letter) => {
+  const { totalPages, currentMovies } = useMemo(() => {
+    const total = Math.ceil(filteredMovies.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const current = filteredMovies.slice(startIndex, endIndex);
+    return { totalPages: total, currentMovies: current };
+  }, [filteredMovies, currentPage]);
+
+  const handleLetterClick = useCallback((letter) => {
     setCurrentLetter(letter === currentLetter ? null : letter);
-  };
+  }, [currentLetter]);
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = useCallback((newPage) => {
     setCurrentPage(newPage);
-  };
+  }, []);
 
   return (
     <PageLayout>
       {/* Alphabet buttons */}
-      <div className="flex flex-wrap gap-2 ml-3 mb-6">
+      <div className="flex flex-wrap gap-2 mt-3 px-3 mb-6">
         {ALPHABET.map((letter) => (
           <button
             key={letter}
