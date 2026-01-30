@@ -234,8 +234,7 @@ const ContentDetails = () => {
                           : "temporadas"
                       }`}
                 </span>
-              </div>
-              <div className="flex items-center text-gray-300 mb-4">
+                <div className="flex items-center text-gray-300 mb-4">
                 <button
                   onClick={handleFavorite}
                   className="bg-black bg-opacity-80 rounded-lg p-8 backdrop-filter backdrop-blur-lg text-white relative"
@@ -246,6 +245,7 @@ const ContentDetails = () => {
                     <Heart className="w-4 h-4 mr-1" />
                   )}
                 </button>
+              </div>
               </div>
               <p className="text-gray-300 mb-4">{content.synopsis}</p>
             </div>
