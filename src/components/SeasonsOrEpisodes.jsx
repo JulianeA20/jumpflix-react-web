@@ -17,7 +17,26 @@ const calculateVideoDuration = (file) =>
 
 const uploadFile = async (bucket, file) => {
   if (!file) return null;
-  const filePath = `${Date.now()}_${file.name}`;
+
+  // Função para sanitizar o nome do arquivo
+  const sanitizeFileName = (fileName) => {
+    const ext = fileName.split('.').pop();
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+
+    const sanitized = nameWithoutExt
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .substring(0, 100);
+
+    return `${sanitized}.${ext}`;
+  };
+
+  const sanitizedName = sanitizeFileName(file.name);
+  const filePath = `${Date.now()}_${sanitizedName}`;
+
   const { error } = await supabase.storage.from(bucket).upload(filePath, file);
   if (error) {
     console.error("Erro ao fazer upload:", error);
@@ -28,6 +47,7 @@ const uploadFile = async (bucket, file) => {
     .getPublicUrl(filePath).data;
   return publicUrl;
 };
+
 
 const SeasonsOrEpisodes = ({
   contentType,
@@ -52,7 +72,7 @@ const SeasonsOrEpisodes = ({
     duration: "",
   });
   const [saving, setSaving] = useState(false);
-  const [step, setStep] = useState(1); 
+  const [step, setStep] = useState(1);
 
   const ensureSeason = (season) => {
     setEpisodesData((prev) =>
@@ -168,11 +188,10 @@ const SeasonsOrEpisodes = ({
                 <button
                   key={idx}
                   onClick={() => handleChooseSeason(idx + 1)}
-                  className={`${
-                    seasonIndex === idx + 1
+                  className={`${seasonIndex === idx + 1
                       ? "bg-red-600 text-white"
                       : "bg-gray-600 text-white hover:bg-gray-700"
-                  } font-bold w-10 h-10 rounded transition-colors duration-300 flex items-center justify-center`}
+                    } font-bold w-10 h-10 rounded transition-colors duration-300 flex items-center justify-center`}
                 >
                   {idx + 1}
                 </button>

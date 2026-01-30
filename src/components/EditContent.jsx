@@ -385,6 +385,23 @@ const EditContent = ({ onClose }) => {
   const uploadFile = async (file, bucket) => {
     if (!file) return null;
 
+    // Função para sanitizar o nome do arquivo
+    const sanitizeFileName = (fileName) => {
+      const ext = fileName.split('.').pop();
+      const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+
+      const sanitized = nameWithoutExt
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .substring(0, 100);
+
+      return `${sanitized}.${ext}`;
+    };
+
+    const sanitizedName = sanitizeFileName(file.name);
     const fileExt = file.name.split(".").pop();
     const fileName = `${uuidv4()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
@@ -399,6 +416,7 @@ const EditContent = ({ onClose }) => {
 
     return urlData.publicUrl;
   };
+
 
   const handleSaveSeasons = async () => {
     setIsSubmitting(true);
@@ -693,8 +711,8 @@ const EditContent = ({ onClose }) => {
           {isSubmitting && (
             <div className="mb-4">
               <div className="bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -706,11 +724,10 @@ const EditContent = ({ onClose }) => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`text-sm text-white font-bold py-2 px-4 rounded ${
-                  isSubmitting 
-                    ? 'bg-gray-500 cursor-not-allowed' 
+                className={`text-sm text-white font-bold py-2 px-4 rounded ${isSubmitting
+                    ? 'bg-gray-500 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
-                }`}
+                  }`}
               >
                 {isSubmitting ? 'Atualizando...' : 'Atualizar Filme'}
               </button>
@@ -719,11 +736,10 @@ const EditContent = ({ onClose }) => {
                 type="button"
                 onClick={() => setStep(3)}
                 disabled={isSubmitting}
-                className={`text-sm text-white font-bold py-2 px-4 rounded ${
-                  isSubmitting 
-                    ? 'bg-gray-500 cursor-not-allowed' 
+                className={`text-sm text-white font-bold py-2 px-4 rounded ${isSubmitting
+                    ? 'bg-gray-500 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
-                }`}
+                  }`}
               >
                 Avançar
               </button>

@@ -1,32 +1,36 @@
-
 .modal-content {
   position: absolute;
   display: flex;
   flex-direction: column;
-  top: 25%;
-  left: 25%;
-  right: 25%;
-  bottom: 25%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  max-width: 90%;
+  max-height: 80vh;
   background-color: black;
   padding: 35px;
   border: 2px solid red;
   box-shadow: 0 0 15px red;
   border-radius: 8px;
+  overflow-y: auto;
   transition: transform 0.3s ease-in-out;
 }
 
-.seta:after{ /*Triangulo*/
-    content: "";
-    width: 0;
-    height: 0;
-    position: absolute;
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    /*Faz seta "apontar para baixo. Definir o valor como 'top' fará ela "apontar para cima" */
-    /*Aqui entra a cor da "aba" do balão */
-    border-bottom: 20px solid #09090b;
-    top: -10px; /*localização. Experimente alterar para 'bottom'*/
-    left: 53%;
+.seta:after {
+  /*Triangulo*/
+  content: "";
+  width: 0;
+  height: 0;
+  position: absolute;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  /*Faz seta "apontar para baixo. Definir o valor como 'top' fará ela "apontar para cima" */
+  /*Aqui entra a cor da "aba" do balão */
+  border-bottom: 20px solid #09090b;
+  top: -10px;
+  /*localização. Experimente alterar para 'bottom'*/
+  left: 53%;
 }
 
 .slick-dots {
@@ -58,7 +62,8 @@
   z-index: 1;
 }
 
-.slick-prev:hover, .slick-prev:focus {
+.slick-prev:hover,
+.slick-prev:focus {
   color: red;
 }
 
@@ -67,25 +72,25 @@
 }
 
 .slide-in-right {
-  transform: translateX(100%);
+  transform: translate(calc(-50% + 100vw), -50%);
 }
 
 .slide-in-left {
-  transform: translateX(-100%);
+  transform: translate(calc(-50% - 100vw), -50%);
 }
 
 .ReactModal__Overlay--after-open .slide-in-right {
-  transform: translateX(0);
+  transform: translate(-50%, -50%);
 }
 
 .ReactModal__Overlay--after-open .slide-in-left {
-  transform: translateX(0);
+  transform: translate(-50%, -50%);
 }
 
 .ReactModal__Overlay--before-close .slide-in-right {
-  transform: translateX(100%);
+  transform: translate(calc(-50% + 100vw), -50%);
 }
 
 .ReactModal__Overlay--before-close .slide-in-left {
-  transform: translateX(-100%);
+  transform: translate(calc(-50% - 100vw), -50%);
 }

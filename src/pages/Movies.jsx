@@ -5,6 +5,7 @@ import { getMovies } from "../services/database";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const NUMBERS = "0123456789".split("");
 const ITEMS_PER_PAGE = 30;
 
 const Movies = () => {
@@ -51,17 +52,28 @@ const Movies = () => {
 
   return (
     <PageLayout>
-      {/* Alphabet buttons */}
+      {/* Alphabet and number buttons */}
       <div className="flex flex-wrap gap-2 mt-3 px-3 mb-6">
+        {NUMBERS.map((number) => (
+          <button
+            key={number}
+            onClick={() => handleLetterClick(number)}
+            className={`px-3 py-1 rounded ${currentLetter === number
+                ? "bg-red-600 text-white"
+                : "bg-gray-700 hover:bg-gray-600"
+              }`}
+          >
+            {number}
+          </button>
+        ))}
         {ALPHABET.map((letter) => (
           <button
             key={letter}
             onClick={() => handleLetterClick(letter)}
-            className={`px-3 py-1 rounded ${
-              currentLetter === letter
+            className={`px-3 py-1 rounded ${currentLetter === letter
                 ? "bg-red-600 text-white"
                 : "bg-gray-700 hover:bg-gray-600"
-            }`}
+              }`}
           >
             {letter}
           </button>
@@ -81,7 +93,7 @@ const Movies = () => {
           </button>
           <span>{currentPage} de {totalPages}</span>
           <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-700 rounded disabled:opacity-50">
-            <ChevronRight/>
+            <ChevronRight />
           </button>
         </div>
       )}

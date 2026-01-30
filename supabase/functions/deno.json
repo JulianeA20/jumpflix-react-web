@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "lib": [
+            "deno.window"
+        ],
+        "types": [
+            "deno"
+        ]
+    },
+    "nodeModulesDir": "auto",
+    "unstable": [
+        "bare-node-builtins"
+    ]
+}

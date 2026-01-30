@@ -81,15 +81,32 @@ const AddContent = ({ onClose }) => {
   const uploadFile = async (bucket, file) => {
     if (!file) return null;
 
-    const filePath = `${Date.now()}_${file.name}`;
+    const sanitizeName = (fileName) => {
+      const ext = fileName.split('.').pop();
+
+      const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+
+      const sanitized = nameWithoutExt
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .replace(0,100);
+
+      return `${sanitized}.${ext}`;
+    };
+
+    const sanitizedName = sanitizeName(fileName);
+    const filePath = `${Date.now()}_${sanitizedName}`;
+
     const { error } = await supabase.storage
       .from(bucket)
       .upload(filePath, file);
 
     if (error) {
-      console.error("Erro ao fazer upload:", error);
+      console.error("Erro ao fazer upload do arquivo:", error);
       return null;
-    }
+    };
 
     const { publicUrl } = supabase.storage
       .from(bucket)
@@ -158,7 +175,7 @@ const AddContent = ({ onClose }) => {
           .select();
 
         if (response.error || !response.data || response.data.length === 0) {
-          throw new Error(response.error?.message ||"Erro ao salvar a série ou dorama.");
+          throw new Error(response.error?.message || "Erro ao salvar a série ou dorama.");
         }
 
         const seriesId = response.data[0].id;
@@ -172,37 +189,37 @@ const AddContent = ({ onClose }) => {
         );
 
         const seasonsResponse = await supabase.from("seasons").insert(seasonsPayload);
-      if (seasonsResponse.error) throw seasonsResponse.error;
-    } else if (contentType === "Anime") {
-      response = await supabase
-        .from("animes")
-        .insert([
-          {
-            title: formData.title.trim(),
-            releaseYear: formData.releaseYear,
-            imdbRating: formData.imdbRating,
-            synopsis: formData.synopsis.trim(),
-            posterUrl,
-          },
-        ])
-        .select();
+        if (seasonsResponse.error) throw seasonsResponse.error;
+      } else if (contentType === "Anime") {
+        response = await supabase
+          .from("animes")
+          .insert([
+            {
+              title: formData.title.trim(),
+              releaseYear: formData.releaseYear,
+              imdbRating: formData.imdbRating,
+              synopsis: formData.synopsis.trim(),
+              posterUrl,
+            },
+          ])
+          .select();
 
-      if (response.error || !response.data || response.data.length === 0) {
-        throw new Error(response.error?.message ||"Erro ao salvar o anime.");
+        if (response.error || !response.data || response.data.length === 0) {
+          throw new Error(response.error?.message || "Erro ao salvar o anime.");
+        }
+
+        const animeId = response.data[0].id;
+
+        const arcsPayload = Array.from({ length: formData.seasons }).map(
+          (_, index) => ({
+            anime_id: animeId,
+            number: index + 1,
+          })
+        );
+
+        const arcsResponse = await supabase.from("arcs").insert(arcsPayload);
+        if (arcsResponse.error) throw arcsResponse.error;
       }
-
-      const animeId = response.data[0].id;
-
-      const arcsPayload = Array.from({ length: formData.seasons }).map(
-        (_, index) => ({
-          anime_id: animeId,
-          number: index + 1,
-        })
-      );
-
-      const arcsResponse = await supabase.from("arcs").insert(arcsPayload);
-      if (arcsResponse.error) throw arcsResponse.error;
-    }
 
       setStep(3);
     } catch (error) {
@@ -428,8 +445,8 @@ const AddContent = ({ onClose }) => {
 
       {step === 3 &&
         (contentType === "Série" ||
-        contentType === "Dorama" ||
-        contentType === "Anime") && (
+          contentType === "Dorama" ||
+          contentType === "Anime") && (
           <SeasonsOrEpisodes
             contentType={contentType}
             formData={formData}

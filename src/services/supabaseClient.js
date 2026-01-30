@@ -1,7 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = "https://qracyjpajjwnbivcygkg.supabase.co";
-const supabaseKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyYWN5anBhamp3bmJpdmN5Z2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE0NTcyNjcsImV4cCI6MjA0NzAzMzI2N30.ui9BpgrvBpz4aq_TtMEJIGiSRDrUQV6-D81KoeeRo6U";
-export const supabase = createClient(supabaseUrl, supabaseKey);
-export default supabaseUrl;
+// Variáveis de ambiente do Vite (prefixadas com VITE_)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validação para desenvolvimento
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Erro: Variáveis de ambiente do Supabase não configuradas!");
+    console.error("Certifique-se de que VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão definidas no arquivo .env");
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

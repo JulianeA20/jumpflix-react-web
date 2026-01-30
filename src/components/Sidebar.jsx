@@ -68,7 +68,9 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
             <ClapperboardIcon size={20} />
             Animes
           </button>
-          <button className="w-full flex items-center gap-3 px-11 py-5 font-semibold text-md transition-colors duration-300 hover:bg-zinc-800">
+          <button 
+          onClick={() => navigateToPage("/favorites")}
+          className="w-full flex items-center gap-3 px-11 py-5 font-semibold text-md transition-colors duration-300 hover:bg-zinc-800">
             <HeartIcon size={20} />
             Minha Lista
           </button>

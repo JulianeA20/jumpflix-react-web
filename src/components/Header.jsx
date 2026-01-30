@@ -7,10 +7,6 @@ import { Menu } from "lucide-react";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
-  const handleSearch = (query) => {
-    console.log("Busca enviada:", query);
-  }
 
   return (
     <>
@@ -27,7 +23,7 @@ const Header = () => {
           <span className="text-white text-lg font-bold">JumpFlix</span>
         </div>
 
-        <SearchBar onSearch={handleSearch} />
+        <SearchBar />
 
         <User />
       </header>

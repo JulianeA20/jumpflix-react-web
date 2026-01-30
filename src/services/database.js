@@ -81,6 +81,14 @@ export async function getAnimes() {
   return data;
 }
 
+export async function getDoramas() {
+  const { data, error } = await supabase.from("doramas").select();
+
+  if (error) throw error;
+  return data;
+}
+
+
 export async function getSeasons(parentId, parentType) {
   const { data, error } = await supabase
     .from("seasons")
@@ -174,12 +182,12 @@ export const updateSeason = async (seasonId, seasonData) => {
     })
     .eq("id", seasonId);
 
-   if (error) {
-     console.error("Erro ao atualizar temporada:", error);
-     throw error;
-   }
+  if (error) {
+    console.error("Erro ao atualizar temporada:", error);
+    throw error;
+  }
 
-   return data ? data[0] : null;
+  return data ? data[0] : null;
 }
 
 export async function updateEpisode(id, changes) {
@@ -293,3 +301,28 @@ export async function getContentDetails(id, type) {
 
   return data;
 }
+
+// Pesquisar em todas as categorias
+export async function searchAllContent(query) {
+  if (!query || query.trim() === "") {
+    return { movies: [], series: [], animes: [], doramas: [] };
+  }
+
+  const searchTerm = `%${query}%`;
+
+  // Buscar em paralelo em todas as tabelas
+  const [moviesResult, seriesResult, animesResult, doramasResult] = await Promise.all([
+    supabase.from("movies").select("*").ilike("title", searchTerm),
+    supabase.from("series").select("*").ilike("title", searchTerm),
+    supabase.from("animes").select("*").ilike("title", searchTerm),
+    supabase.from("doramas").select("*").ilike("title", searchTerm),
+  ]);
+
+  return {
+    movies: moviesResult.data || [],
+    series: seriesResult.data || [],
+    animes: animesResult.data || [],
+    doramas: doramasResult.data || [],
+  };
+}
+
