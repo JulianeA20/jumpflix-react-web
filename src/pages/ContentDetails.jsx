@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import HeaderBack from "../components/HeaderBack";
-import { getContentDetails } from "../services/database";
+import { getContentDetails, addToFavorites, removeFromFavorites, isFavorite } from "../services/database";
 import { supabase } from "../services/supabaseClient";
-import { Play, Star } from "lucide-react";
+import { Play, Star, Heart } from "lucide-react";
 
 const ContentDetails = () => {
   const { id, type } = useParams();
   const [user, setUser] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [content, setContent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFavorited, setIsFavorited] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [showControls, setShowControls] = useState(false);
 
@@ -58,6 +60,21 @@ const ContentDetails = () => {
     };
   }, [fetchUserData]);
 
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (user?.id && content?.id) {
+        try {
+          const favorited = await isFavorite(user.id, content.id, type);
+          setIsFavorited(favorited);
+        } catch (error) {
+          console.error("Erro ao verificar favorito:", error);
+        }
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [user, content, type]);
+
   if (isLoading) {
     return <div>Carregando...</div>;
   }
@@ -65,6 +82,26 @@ const ContentDetails = () => {
   if (!content) {
     return <div>Conteúdo não encontrado.</div>;
   }
+
+  const handleToggleFavorite = async () => {
+    if (!user?.id) {
+      alert("Faça login para adicionar aos favoritos!");
+      return;
+    }
+
+    try {
+      if (isFavorited) {
+        await removeFromFavorites(user.id, content.id, type);
+        setIsFavorited(false);
+      } else {
+        await addToFavorites(user.id, content.id, type);
+        setIsFavorited(true);
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar favoritos: ", error);
+      alert("Erro ao atualizar favoritos. Tente novamente.");
+    }
+  };
 
   const handlePlay = () => {
     setShowControls(true);
@@ -197,6 +234,18 @@ const ContentDetails = () => {
                           : "temporadas"
                       }`}
                 </span>
+              </div>
+              <div className="flex items-center text-gray-300 mb-4">
+                <button
+                  onClick={handleFavorite}
+                  className="bg-black bg-opacity-80 rounded-lg p-8 backdrop-filter backdrop-blur-lg text-white relative"
+                >
+                  {isFavorited ? (
+                    <Heart className="w-4 h-4 mr-1" />
+                  ) : (
+                    <Heart className="w-4 h-4 mr-1" />
+                  )}
+                </button>
               </div>
               <p className="text-gray-300 mb-4">{content.synopsis}</p>
             </div>

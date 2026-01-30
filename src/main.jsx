@@ -15,6 +15,7 @@ const Series = React.lazy(() => import('./pages/Series'));
 const Animes = React.lazy(() => import('./pages/Animes'));
 const Kdramas = React.lazy(() => import('./pages/Kdramas'));
 const SearchResults = React.lazy(() => import('./pages/SearchResults'));
+const Favorites = React.lazy(() => import('./pages/Favorites'));
 
 const router = createBrowserRouter([
   { path: "/", element: <Home /> },
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
   { path: "/animes", element: <Animes /> },
   { path: "/kdramas", element: <Kdramas /> },
   { path: "/search", element: <SearchResults /> },
+  { path: "/favorites", element: <Favorites /> },
   // Add more routes as needed
 ]);
 

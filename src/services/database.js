@@ -59,6 +59,16 @@ export const addEpisode = async (episodeData) => {
   return data;
 }
 
+export async function addToFavorites(userId, contentId, contentType) {
+  const { data, error } = await supabase
+    .from("favorites")
+    .insert([{ user_id: userId, content_id: contentId, content_type: contentType }])
+    .select();
+
+  if (error) throw error;
+  return data;
+}
+
 // Buscar
 export async function getMovies() {
   const { data, error } = await supabase.from("movies").select();
@@ -139,6 +149,17 @@ export async function getAnimeById(id) {
     .select()
     .eq("id", id)
     .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getFavorites(userId) {
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
   return data;
@@ -234,6 +255,30 @@ export async function deleteEpisode(id) {
 
   if (error) throw error;
   return data;
+}
+
+export async function removeFromFavorites(userId, contentId, contenType) {
+  const { error } = await supabase
+    .from("favorites")
+    .delete()
+    .eq("user_id", userId)
+    .eq("content_id", contentId)
+    .eq("content_type", contenType);
+
+  if (error) throw error;
+}
+
+export async function isFavorite(userId, contentId, contentType) {
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("content_id", contentId)
+    .eq("content_type", contentType)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return !!data;
 }
 
 export async function getContentDetails(id, type) {
