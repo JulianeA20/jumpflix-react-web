@@ -87,16 +87,16 @@ const AddContent = ({ onClose }) => {
       const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
 
       const sanitized = nameWithoutExt
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '')
-      .replace(0,100);
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .substring(0, 100);
 
       return `${sanitized}.${ext}`;
     };
 
-    const sanitizedName = sanitizeName(fileName);
+    const sanitizedName = sanitizeName(file.name);
     const filePath = `${Date.now()}_${sanitizedName}`;
 
     const { error } = await supabase.storage
