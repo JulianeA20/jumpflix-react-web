@@ -1,20 +1,32 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { getMovies, getSeries, getAnimes, getDoramas } from "../services/database";
-import { Star, Film, Tv, Drama, Swords } from "lucide-react";
+import { Star, Film, Tv, Drama, Swords, CirclePlay, ChevronLeft, ChevronRight, Play, Info } from "lucide-react";
 
 const Dashboard = () => {
   const [allContent, setAllContent] = useState([]);
-  const [filteredContent, setFilteredContent] = useState([]);
-  const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ movies: 0, series: 0, animes: 0, doramas: 0 });
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [featuredContent, setFeaturedContent] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchAllContent();
   }, []);
+
+  // Auto-slide functionality
+  useEffect(() => {
+    if (featuredContent.length === 0) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % featuredContent.length);
+    }, 5000); // Troca a cada 5 segundos
+
+    return () => clearInterval(interval);
+  }, [featuredContent.length]);
 
   const fetchAllContent = async () => {
     try {
@@ -41,7 +53,9 @@ const Dashboard = () => {
       combined.sort((a, b) => b.id - a.id);
 
       setAllContent(combined);
-      setFilteredContent(combined);
+
+      // Selecionar os 3 primeiros para destaque
+      setFeaturedContent(combined.slice(0, 3));
 
       // Calcular estatísticas
       setStats({
@@ -57,18 +71,18 @@ const Dashboard = () => {
     }
   };
 
-  const handleFilter = (type) => {
-    setActiveFilter(type);
 
-    if (type === "all") {
-      setFilteredContent(allContent);
-    } else {
-      setFilteredContent(allContent.filter(item => item.type === type));
-    }
-  };
 
   const handleCardClick = (item) => {
     navigate(`/content/${item.type}/${item.id}`);
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % featuredContent.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + featuredContent.length) % featuredContent.length);
   };
 
   const getTypeColor = (type) => {
@@ -94,9 +108,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <p className="text-xl text-gray-400">Carregando conteúdo...</p>
-        </div>
+        <LoadingSpinner fullScreen={false} message="Carregando conteúdo..." />
       </PageLayout>
     );
   }
@@ -105,146 +117,169 @@ const Dashboard = () => {
 
   return (
     <PageLayout>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Dashboard - Gerenciar Conteúdo</h1>
+      <div className="px-8 py-8">
+        {/* Featured Carousel - Hero Section */}
+        {featuredContent.length > 0 && (
+          <div className="relative w-full h-[70vh] mb-10 border-2 border-white rounded-lg overflow-hidden">
+            {featuredContent.map((item, index) => (
+              <div
+                key={`featured-${item.type}-${item.id}`}
+                className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                  }`}
+              >
+                {/* Background Image */}
+                <div className="absolute inset-0 rounded-lg">
+                  <img
+                    src={item.thumbnailUrl || item.posterUrl}
+                    alt={item.title}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent"></div>
+                </div>
 
-        {/* Filtros */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          <FilterButton
-            active={activeFilter === "all"}
-            onClick={() => handleFilter("all")}
-            icon={null}
-            label="Todos"
-            count={totalContent}
-            color="bg-zinc-700"
-          />
-          <FilterButton
-            active={activeFilter === "movie"}
-            onClick={() => handleFilter("movie")}
-            icon={<Film size={18} />}
-            label="Filmes"
-            count={stats.movies}
-            color="bg-red-600"
-          />
-          <FilterButton
-            active={activeFilter === "series"}
-            onClick={() => handleFilter("series")}
-            icon={<Tv size={18} />}
-            label="Séries"
-            count={stats.series}
-            color="bg-blue-600"
-          />
-          <FilterButton
-            active={activeFilter === "dorama"}
-            onClick={() => handleFilter("dorama")}
-            icon={<Drama size={18} />}
-            label="Doramas"
-            count={stats.doramas}
-            color="bg-purple-600"
-          />
-          <FilterButton
-            active={activeFilter === "anime"}
-            onClick={() => handleFilter("anime")}
-            icon={<Swords size={18} />}
-            label="Animes"
-            count={stats.animes}
-            color="bg-green-600"
-          />
-        </div>
+                {/* Content */}
+                <div className="relative z-20 h-full flex items-center">
+                  <div className="max-w-7xl mx-auto px-8 w-full">
+                    <div className="max-w-2xl">
+                      {/* Type Badge */}
+                      <div className={`inline-flex items-center gap-2 ${getTypeColor(item.type)} px-4 py-2 rounded-full text-sm font-semibold mb-4`}>
+                        {getTypeIcon(item.type)}
+                        {item.typeName}
+                      </div>
 
-        {/* Grid de conteúdo */}
-        {filteredContent.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-xl text-gray-400 mb-2">Nenhum conteúdo encontrado</p>
-            <p className="text-gray-500">Adicione conteúdo para começar!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredContent.map((item) => (
-              <ContentCard
-                key={`${item.type}-${item.id}`}
-                item={item}
-                onClick={() => handleCardClick(item)}
-                typeColor={getTypeColor(item.type)}
-                typeIcon={getTypeIcon(item.type)}
-              />
+                      {/* Title */}
+                      <h2 className="text-5xl md:text-7xl font-bold text-white mb-8 drop-shadow-lg">
+                        {item.title}
+                      </h2>
+
+                      {/* Buttons */}
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => handleCardClick(item)}
+                          className="flex items-center gap-2 bg-white text-black px-8 py-3 rounded-md font-bold text-lg hover:bg-gray-200 transition-all transform hover:scale-105"
+                        >
+                          <Play size={24} fill="currentColor" />
+                          Assistir
+                        </button>
+                        <button
+                          onClick={() => handleCardClick(item)}
+                          className="flex items-center gap-2 bg-gray-500/70 text-white px-8 py-3 rounded-md font-bold text-lg hover:bg-gray-500 transition-all"
+                        >
+                          <Info size={24} />
+                          Mais Informações
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
+
+            {/* Navigation Arrows */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-30 hover:text-red-600 transition-duration:300 text-white p-3 rounded-full transition-all"
+            >
+              <ChevronLeft size={32} />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-30 hover:text-red-600 text-white p-3 rounded-full transition-all"
+            >
+              <ChevronRight size={32} />
+            </button>
+
+            {/* Indicators */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+              {featuredContent.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-1 rounded-full transition-all ${index === currentSlide ? 'w-8 bg-white' : 'w-6 bg-gray-400/50'
+                    }`}
+                />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Contador */}
-        <div className="mt-8 text-center text-gray-400">
-          Mostrando {filteredContent.length} {filteredContent.length === 1 ? 'item' : 'itens'}
+        <div className="max-w-full mx-auto">
+          {/* Título da seção */}
+          <h1 className="text-2xl font-bold mb-6">Adicionados Recentemente</h1>
+
+          {/* Grid de conteúdo */}
+          {allContent.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-xl text-gray-400 mb-2">Nenhum conteúdo encontrado</p>
+              <p className="text-gray-500">Adicione conteúdo para começar!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+              {allContent.map((item) => (
+                <ContentCard
+                  key={`${item.type}-${item.id}`}
+                  item={item}
+                  onClick={() => handleCardClick(item)}
+                  typeColor={getTypeColor(item.type)}
+                  typeIcon={getTypeIcon(item.type)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Contador */}
+          <div className="mt-8 text-center text-gray-400">
+            Mostrando {allContent.length} {allContent.length === 1 ? 'item' : 'itens'}
+          </div>
         </div>
       </div>
     </PageLayout>
   );
 };
 
-// Componente de botão de filtro
-const FilterButton = ({ active, onClick, icon, label, count, color }) => (
-  <button
-    onClick={onClick}
-    className={`
-      flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-all duration-300
-      ${active
-        ? `${color} text-white scale-105`
-        : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
-      }
-    `}
-  >
-    {icon}
-    <span>{label}</span>
-    <span className={`
-      px-2 py-0.5 rounded-full text-xs
-      ${active ? 'bg-black bg-opacity-30' : 'bg-zinc-900'}
-    `}>
-      {count}
-    </span>
-  </button>
-);
+
 
 // Componente de card de conteúdo
 const ContentCard = ({ item, onClick, typeColor, typeIcon }) => (
   <div
     onClick={onClick}
-    className="group cursor-pointer bg-zinc-900 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-red-900/20"
+    className="relative group cursor-pointer"
   >
-    {/* Poster */}
-    <div className="relative aspect-[2/3] bg-zinc-800">
+    <div className="w-full aspect-[2/3] overflow-hidden rounded-md">
       {item.posterUrl ? (
         <img
           src={item.posterUrl}
           alt={item.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-gray-600">
+        <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-gray-600">
           {typeIcon}
         </div>
       )}
 
-      {/* Badge de tipo */}
-      <div className={`absolute top-2 right-2 ${typeColor} px-2 py-1 rounded text-xs font-semibold flex items-center gap-1`}>
-        {typeIcon}
-        {item.typeName}
-      </div>
-    </div>
+      {/* Overlay no hover */}
+      <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-md flex items-center justify-center">
+        <div className="text-center px-4">
+          <h3 className="text-lg font-bold text-white mb-1 line-clamp-2">
+            {item.title}
+          </h3>
+          <p className="text-white text-sm mb-1">
+            {item.releaseYear}
+          </p>
 
-    {/* Informações */}
-    <div className="p-3">
-      <h3 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-red-500 transition-colors">
-        {item.title}
-      </h3>
-
-      <div className="flex items-center justify-between text-xs text-gray-400">
-        <span>{item.releaseYear}</span>
-        {item.imdbRating && (
-          <div className="flex items-center gap-1">
-            <Star size={12} className="fill-yellow-500 text-yellow-500" />
-            <span>{item.imdbRating}</span>
+          {/* Badge de tipo */}
+          <div className={`inline-flex items-center gap-1 ${typeColor} px-2 py-1 rounded text-xs font-semibold mb-2`}>
+            {typeIcon}
+            {item.typeName}
           </div>
-        )}
+
+          <div className="text-white hover:text-red-600 transition-colors duration-300 flex justify-center">
+            <CirclePlay size={50} strokeWidth={1.2} />
+          </div>
+        </div>
       </div>
     </div>
   </div>

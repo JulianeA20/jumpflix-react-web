@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
-import { getUserFavorites, getMovieById, getSeriesById, getAnimeById } from "../services/database";
+import { getFavorites, getMovieById, getSeriesById, getAnimeById } from "../services/database";
 import { supabase } from "../services/supabaseClient";
 import { Star, Film, Tv, Drama, Swords, Heart } from "lucide-react";
 const Favorites = () => {
@@ -15,21 +15,21 @@ const Favorites = () => {
   const fetchUserAndFavorites = async () => {
     try {
       setLoading(true);
-      
+
       // Buscar usuário
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
-      
+
       if (!user) {
         navigate("/"); // Redirecionar se não autenticado
         return;
       }
-      
+
       setUser(user);
-      
+
       // Buscar favoritos
-      const favoritesData = await getUserFavorites(user.id);
-      
+      const favoritesData = await getFavorites(user.id);
+
       // Buscar detalhes de cada favorito
       const favoritesWithDetails = await Promise.all(
         favoritesData.map(async (fav) => {
@@ -53,7 +53,7 @@ const Favorites = () => {
           };
         })
       );
-      
+
       setFavorites(favoritesWithDetails);
     } catch (error) {
       console.error("Erro ao buscar favoritos:", error);
@@ -105,7 +105,7 @@ const Favorites = () => {
                 />
               ))}
             </div>
-            
+
             <div className="mt-8 text-center text-gray-400">
               {favorites.length} {favorites.length === 1 ? 'favorito' : 'favoritos'}
             </div>
@@ -128,7 +128,7 @@ const FavoriteCard = ({ item, onClick }) => (
           className="w-full h-full object-cover"
         />
       )}
-      
+
       <div className="absolute top-2 left-2">
         <Heart
           size={20}
@@ -140,7 +140,7 @@ const FavoriteCard = ({ item, onClick }) => (
       <h3 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-red-500 transition-colors">
         {item.title}
       </h3>
-      
+
       <div className="flex items-center justify-between text-xs text-gray-400">
         <span>{item.releaseYear}</span>
         {item.imdbRating && (

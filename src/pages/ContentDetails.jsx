@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import HeaderBack from "../components/HeaderBack";
+import LoadingSpinner from "../components/LoadingSpinner";
+import Modal from "../components/Modal";
 import { getContentDetails, addToFavorites, removeFromFavorites, isFavorite } from "../services/database";
 import { supabase } from "../services/supabaseClient";
 import { Play, Star, Heart } from "lucide-react";
@@ -14,6 +16,7 @@ const ContentDetails = () => {
   const [isFavorited, setIsFavorited] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [showControls, setShowControls] = useState(false);
+  const [modal, setModal] = useState({ isOpen: false, type: "info", title: "", message: "" });
 
   useEffect(() => {
     const fetchContentDetails = async () => {
@@ -33,11 +36,11 @@ const ContentDetails = () => {
 
   const fetchUserData = useCallback(async () => {
     try {
-      const { data, error } = await supabase.auth.getSession();
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
         console.error("Erro ao buscar sessão do usuário:", error);
-      } else if (data?.session?.user) {
-        setUser(data.session.user.user_metadata);
+      } else if (user) {
+        setUser(user);
       }
     } catch (err) {
       console.error("Erro inesperado ao buscar sessão:", err);
@@ -76,16 +79,25 @@ const ContentDetails = () => {
   }, [user, content, type]);
 
   if (isLoading) {
-    return <div>Carregando...</div>;
+    return <LoadingSpinner message="Carregando conteúdo..." />;
   }
 
   if (!content) {
-    return <div>Conteúdo não encontrado.</div>;
+    return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+        <p className="text-xl text-gray-400">Conteúdo não encontrado.</p>
+      </div>
+    );
   }
 
   const handleToggleFavorite = async () => {
     if (!user?.id) {
-      alert("Faça login para adicionar aos favoritos!");
+      setModal({
+        isOpen: true,
+        type: "error",
+        title: "Login Necessário",
+        message: "Faça login para adicionar aos favoritos!"
+      });
       return;
     }
 
@@ -93,13 +105,30 @@ const ContentDetails = () => {
       if (isFavorited) {
         await removeFromFavorites(user.id, content.id, type);
         setIsFavorited(false);
+        setModal({
+          isOpen: true,
+          type: "success",
+          title: "Removido!",
+          message: "Conteúdo removido dos favoritos."
+        });
       } else {
         await addToFavorites(user.id, content.id, type);
         setIsFavorited(true);
+        setModal({
+          isOpen: true,
+          type: "success",
+          title: "Adicionado!",
+          message: "Conteúdo adicionado aos favoritos."
+        });
       }
     } catch (error) {
       console.error("Erro ao atualizar favoritos: ", error);
-      alert("Erro ao atualizar favoritos. Tente novamente.");
+      setModal({
+        isOpen: true,
+        type: "error",
+        title: "Erro",
+        message: "Erro ao atualizar favoritos. Tente novamente."
+      });
     }
   };
 
@@ -157,11 +186,10 @@ const ContentDetails = () => {
               <button
                 key={season.number}
                 onClick={() => setSelectedSeason(season.number)}
-                className={`px-4 py-2 rounded-full ${
-                  selectedSeason === season.number
-                    ? "bg-red-600 text-white"
-                    : "bg-gray-700 text-gray-300"
-                }`}
+                className={`px-4 py-2 rounded-full ${selectedSeason === season.number
+                  ? "bg-red-600 text-white"
+                  : "bg-gray-700 text-gray-300"
+                  }`}
               >
                 {season.number}
               </button>
@@ -222,30 +250,31 @@ const ContentDetails = () => {
 
           <div className="ml-[280px] flex-1">
             <div className="bg-black bg-opacity-80 rounded-lg p-8 backdrop-filter backdrop-blur-lg text-white">
-              <h1 className="text-3xl font-bold mb-4">{content.title}</h1>
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-3xl font-bold">{content.title}</h1>
+                <button
+                  onClick={handleToggleFavorite}
+                  className="transition-colors hover:scale-110 transform duration-200"
+                >
+                  <Heart
+                    size={24}
+                    className={`transition-all ${isFavorited
+                      ? "fill-red-500 text-red-500"
+                      : "text-white hover:text-red-500"
+                      }`}
+                  />
+                </button>
+              </div>
               <div className="flex items-center text-gray-300 mb-4">
                 <span className="mr-4">{content.releaseYear}</span>
                 <span>
                   {type === "movie"
                     ? `${content.duration || 0}min`
-                    : `${content.seasons?.length || 0} ${
-                        content.seasons?.length === 1
-                          ? "temporada"
-                          : "temporadas"
-                      }`}
+                    : `${content.seasons?.length || 0} ${content.seasons?.length === 1
+                      ? "temporada"
+                      : "temporadas"
+                    }`}
                 </span>
-                <div className="flex items-center text-gray-300 mb-4">
-                <button
-                  onClick={handleFavorite}
-                  className="bg-black bg-opacity-80 rounded-lg p-8 backdrop-filter backdrop-blur-lg text-white relative"
-                >
-                  {isFavorited ? (
-                    <Heart className="w-4 h-4 mr-1" />
-                  ) : (
-                    <Heart className="w-4 h-4 mr-1" />
-                  )}
-                </button>
-              </div>
               </div>
               <p className="text-gray-300 mb-4">{content.synopsis}</p>
             </div>
@@ -259,6 +288,15 @@ const ContentDetails = () => {
           {renderContent()}
         </div>
       </div>
+
+      {/* Modal */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={() => setModal({ ...modal, isOpen: false })}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+      />
     </div>
   );
 };
